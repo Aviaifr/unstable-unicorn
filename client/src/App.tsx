@@ -1,25 +1,26 @@
-import React from 'react';
-import logo from './logo.svg';
+import { type } from 'os';
+import React, { useEffect, useState } from 'react';
+import SocketIOClient from 'socket.io-client';
 import './App.css';
+interface somedata{
+  data: string
+}
 
 function App() {
+  const [response, setResponse] = useState<somedata | undefined>(undefined);
+
+  useEffect(() => {
+    const socket = SocketIOClient("http://localhost:49160");
+    socket.on("init", data => {
+      console.log(data);
+      setResponse(data);
+    });
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <p>
+      It's {response?.data}
+    </p>
   );
 }
 

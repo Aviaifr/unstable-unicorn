@@ -1,7 +1,18 @@
 version: '3'
 services:
+  unstable-nginx:
+    depends_on:
+      - unstable-server
+      - unstable-client
+    restart: always
+    build:
+      dockerfile: Dockerfile
+      context: ./nginx
+    ports:
+      - "3050:80"
+
   unstable-server:
-    build: .
+    build: ./server
     image: unstable_unicorn:latest
     tty: true
     volumes: 
@@ -9,3 +20,13 @@ services:
     ports:
       - 49160:8080
       - 9229:9229
+
+  unstable-client:
+    stdin_open: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    build:
+      dockerfile: Dockerfile
+      context: ./client
+    volumes:
+      - ./client:/app

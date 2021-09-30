@@ -10,6 +10,8 @@ import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Room } from "./src/Rooms/Room";
 import { generateUID , cleanPlayersDataForAll} from "./src/utils";
 
+import cors from 'cors';
+
 const RoomsMap: Map<string, Room> = new Map<string, Room>();
 const sessionsRoomsMap: Map<string, Room | null> = new Map<string, Room | null>();
 const sessionsPlayers: Map<string, Player | null> = new Map<string, Player | null>();
@@ -20,8 +22,13 @@ const HOST = '0.0.0.0';
 
 // App and servers
 const app = express();
+app.use(cors());
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+  }
+});
 setupSession(app, io);
 
 
