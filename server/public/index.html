@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <title>Unstable</title>
+    <style>
+    .cardContainer{
+        display: flex;
+    }
+        .cardContainer > div {
+            position: sticky;
+            display: inline-block;
+            margin: 10px;
+            border: 1px solid #ccc;
+            border-radius: 15px 15px;
+            width: 200px;
+            text-align: center;
+        }
+        .cardContainer > div > img {
+            max-width: 200px;
+            margin: auto;
+        }
+        .cardContainer > div > .icon {
+            width: 50px;
+            position: absolute;
+            left: 0;
+            border-radius: 15px 0 0 0;
+        }
+        .cardContainer > div > p {
+            max-height: 55px;
+            overflow-y: auto;
+        }
+        .cardContainer > div > p.title {
+            margin-bottom: 0;
+            position: relative;
+            white-space: nowrap;
+        }
+        .cardContainer > div > p.type {
+            text-align: initial;
+            margin-left: 5px;
+            font-size: 12px;
+            margin-top: -12px;
+        }
+        p.type.instant{
+            color: #e91f20;
+        }
+        p.type.basic{
+            color: #6874b8;
+        }
+        p.type.magical{
+            color: #1abaef;
+        }
+        p.type.magic{
+            color: #8ac74f;
+        }
+        p.type.baby{
+            color: #b96cac;
+        }
+        p.type.upgrade{
+            color: #f68022;
+        }
+        p.type.downgrade{
+            color: #fcca15;
+        }
+        p.title.smaller {
+            font-size: 12px;
+            margin-top: 20px;
+        }
+    </style>
+    </head>
+    <body>
+        <br><br><br><br><br><br><br><br><br>
+        <h1>Unstable Unicorn!</h1>
+        <div id="mainDiv" style="border: 1px solid #ccc">
+            <input type="button" id="newGame" value="New Game"></input>
+            <div id="roomId"></div>
+            <br>
+            <input type="button" id="joinGame" value="Join Game"</input>
+            <input type="text" id="gameID"></input>
+        </div>
+        <br><br>
+        <div id="room"  style="border: 1px solid #ccc">
+            You are in a room
+            <div id="roomId"></div>
+            <div id="card" style="display: inline-block;"></div>
+            <div style="overflow: scroll; max-height: 500px; vertical-align: top;">
+            <ul id="playerList" style="display: inline-block;"></ul>            
+            </div>
+            <input type="button" id="startGame" value="Start Game"></input>
+        </div>
+        <div id="nursery" class='cardContainer'></div>
+        <div id="hand" class='cardContainer'></div>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="app.js"></script>
+    </body>
+</html>

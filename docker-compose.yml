@@ -1,0 +1,11 @@
+version: '3'
+services:
+  unstable-server:
+    build: .
+    image: unstable_unicorn:latest
+    tty: true
+    volumes: 
+      - ./server:/usr/src/app/server
+    ports:
+      - 49160:8080
+      - 9229:9229
