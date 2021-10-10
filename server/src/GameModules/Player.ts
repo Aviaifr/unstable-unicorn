@@ -24,6 +24,15 @@ export class Player {
             this.hand.push(card);
         }
     }
+    toJson(player: Player | undefined){
+        return {
+            name: this.name,
+            hand: this.hand.map((card:Card) => player === this ? card.toJson() : card.toAnonymousJson()),
+            stable: this.stable,
+            uid: this.uid,
+            currentPlayer: player === this
+        }
+    }
 }
 
 module.exports.Player = Player;

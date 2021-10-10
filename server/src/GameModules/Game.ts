@@ -46,4 +46,14 @@ export class Game{
             this.hasStarted = true;
         }
     }
+
+    toJson(currentPlayer: Player){
+        return {
+            players: this.players.map(player => player.toJson(currentPlayer)),
+            discard: this.discard.map(card => card.toJson()),
+            nursery: this.nursery.map(card => card.toJson()),
+            currentPlayer: this.currentPlayer,
+            uid: this.uid,
+        }
+    }
 }

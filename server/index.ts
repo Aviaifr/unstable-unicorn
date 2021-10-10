@@ -5,40 +5,179 @@ import express from 'express';
 import path from "path";
 import http from "http";
 import { Server, Socket } from "socket.io";
-import { setupSession } from "./setupSession";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Room } from "./src/Rooms/Room";
-import { generateUID , cleanPlayersDataForAll} from "./src/utils";
-
 import cors from 'cors';
+import sessions from 'express-session';
+import sharedsession from "express-socket.io-session";
 
 const RoomsMap: Map<string, Room> = new Map<string, Room>();
 const sessionsRoomsMap: Map<string, Room | null> = new Map<string, Room | null>();
 const sessionsPlayers: Map<string, Player | null> = new Map<string, Player | null>();
 
 // Constants
-const PORT = 8080;
+const PORT = 3060;
 const HOST = '0.0.0.0';
 
 // App and servers
 const app = express();
-app.use(cors());
+app.use(cors({
+  credentials: true
+}));
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: 'http://localhost:3050',
+    credentials: true
+  }
+});
+
+const session = sessions({
+  secret: "my-secret",
+  resave: true,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly:true,
+    domain: 'localhost'
+  }
+});
+app.use(session);
+io.use(sharedsession(session));
+ 
+io.on("connection", function(socket) {
+    socket.emit('init', {data: socket.id});
+    socket.on('setUserName', (uname:string, fn: CallableFunction) => {
+      const sessID = (socket.handshake as any).sessionID;
+      const player = getSessionPlayer(sessID);
+      player.name = uname;
+      sessionsPlayers.set(sessID, player);
+      fn();
+    });
+    socket.on('create_room', () => CreateNewRoom(socket) );
+    socket.on('get_rooms', (fn: CallableFunction) => getRoomsData(socket, fn));
+    socket.on('join_room', data => joinRoom(data, socket));
+    socket.on('get_game', (fn: CallableFunction) => returnGameData(socket, fn))
+    socket.on('start_game', () => startGame(socket))
+});
+
+app.get('/api', (req: any, res: any) => {
+  res.send('Good morning!');
+});
+
+app.use('/static-resources', express.static(path.join(__dirname, "public")))
+server.listen(PORT, HOST, () =>console.log(`App Started at ${PORT}`));
+
+//Rooms functions
+
+function getRoomsData(socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>, callbackFN: CallableFunction){
+  const rooms = Array.from(RoomsMap.keys());
+  const sessID = (socket.handshake as any).sessionID;
+  const currentRoom = sessionsRoomsMap.get(sessID) ?? null;
+  if(currentRoom){
+    socket.join(`room_${currentRoom.uuid}`);
+  }
+  callbackFN({rooms: rooms, currentRoom: currentRoom?.toJSON(getSessionPlayer(sessID))});
+}
+function CreateNewRoom(socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>): void {
+  const sessID = (socket.handshake as any).sessionID;
+  const player: Player = getSessionPlayer(sessID);
+  let room = Array.from(RoomsMap.values()).find((room: Room) => room.getCreator() === player);
+  if(!room){
+    room = new Room(2, player);
+    RoomsMap.set(room.uuid, room);
+    sessionsRoomsMap.set(sessID, room);
+    socket.join(`room_${room.uuid}`);
+    io.emit('room_list', Array.from(RoomsMap.keys()));
+    io.sockets.adapter.rooms.get(`room_${room.uuid}`)?.forEach( clientId => {
+      const sid =(io.sockets.sockets.get(clientId)?.handshake as any)?.sessionID;
+      io.to(clientId).emit('current_room_update', room?.toJSON(getSessionPlayer(sid)));
+    });
+  }
+}
+
+function joinRoom(roomName: string, socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>): void {
+  const sessID = (socket.handshake as any).sessionID;
+  const player: Player = getSessionPlayer(sessID);
+  const room: Room | undefined = RoomsMap.get(roomName);
+  if(!room || !room.joinRoom(player)){
+    return;
+  }
+  if(room){
+    sessionsRoomsMap.set(sessID, room);
+    socket.join(`room_${room.uuid}`);
+    io.emit('room_list', Array.from(RoomsMap.keys()));
+    io.sockets.adapter.rooms.get(`room_${room.uuid}`)?.forEach( clientId => {
+      const sid =(io.sockets.sockets.get(clientId)?.handshake as any)?.sessionID;
+      io.to(clientId).emit('current_room_update', room?.toJSON(getSessionPlayer(sid)));
+    });
+  }
+}
+
+//Player functions
+
+function getSessionPlayer(sessID : string) : Player{
+  let player: Player | undefined | null = sessionsPlayers.get(sessID);
+    if(!player){
+      player = new Player(sessID);
+      sessionsPlayers.set(sessID, player);
+    }
+    return player;
+}
+
+
+//game function
+function returnGameData(socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>, fn: CallableFunction): void {
+  var result = undefined;
+  const sessID = (socket.handshake as any).sessionID;
+  const room = sessionsRoomsMap.get(sessID);
+  if(room){
+    result = room?.game?.toJson(getSessionPlayer(sessID));
+  }
+  
+  fn(result);
+}
+
+function startGame(socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>): void {
+  const sessID = (socket.handshake as any).sessionID;
+  const room = sessionsRoomsMap.get(sessID);
+  const player= getSessionPlayer(sessID)
+  if(!room){
+    //you are not in any game
+    return;
+  }
+  else if (room.getCreator() === player){
+    const game = room.startGame(player);
+    if(game){
+      game.StartGame();
+      io.sockets.adapter.rooms.get(`room_${room.uuid}`)?.forEach( clientId => {
+        const sid =(io.sockets.sockets.get(clientId)?.handshake as any)?.sessionID;
+        io.to(clientId).emit('game_started', game.toJson(getSessionPlayer(sid)));
+      });
+    }
+  }
+}
+/*
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:3050',
+    credentials: true
   }
 });
 setupSession(app, io);
 
 
 const rooms : Array<Room> = [];
-app.use(express.static(path.join(__dirname, "public")));
+
+app.get('/shake', (req: any, res: any) => {
+  res.send('Good morning!');
+});
 
 io.on('connection', client => {
   const sessID = (client.handshake as any).sessionID;
   client.emit('init', {data: "Connected"});
   console.log(sessID);
+  console.log('1');
   //check if session in room
   const room : Room | null | undefined = sessionsRoomsMap.get(sessID);
   const player = sessionsPlayers.get(sessID);
@@ -49,8 +188,8 @@ io.on('connection', client => {
   }
   client.on('newGame', () => CreateNewRoom(sessID, client));
   //client.on('joinRandom', joinRandomGame);
-  client.on('joinGame', data => joinRoom(sessID, data, client));
   client.on('startGame', () => startGame(sessID, client));
+  client.on('login', (data, fn) => setUserName(sessID, data, fn));
 });
 
 server.listen(PORT, HOST);
@@ -108,3 +247,9 @@ function startGame(sessID: string, client: Socket<DefaultEventsMap, DefaultEvent
   }
 
 }
+
+function setUserName(sessID: string, data: string, callbackFN: (data:any) => void): void {
+  getSessionPlayer(sessID).name = data;
+  callbackFN(RoomsMap);
+}
+*/

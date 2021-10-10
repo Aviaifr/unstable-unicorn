@@ -5,15 +5,16 @@ import { generateUID } from "../utils";
 export class Room{
 
     private participants: number;
-    private creatorSess: string;
+    private creator: Player;
     private players: Array<Player> = [];
     private _uuid: string;
-    private game : Game | null = null;
+    private _game: Game | undefined = undefined;
 
-    constructor(participants: number, creatorSess: string){
+    constructor(participants: number, creator: Player){
         this.participants = participants;
-        this.creatorSess = creatorSess;
+        this.creator = creator;
         this._uuid = generateUID();
+        this.joinRoom(creator);
     }
 
     public isAvailable():  boolean{
@@ -21,39 +22,47 @@ export class Room{
     }
 
     public joinRoom(player: Player): boolean{
-        if(this.isAvailable()){
+        if(this.isAvailable() && !this.players.some(listPlayer => listPlayer == player)){
             this.players.push(player);
             return true;
         }
         return false;
     }
 
-    public startGame(userSess : string): Game{
-        if(userSess !== this.creatorSess){
+    public startGame(player : Player): Game | undefined{
+        if(player.uid !== this.creator.uid){
             throw new Error("You are not allowed to do this");
         } else if(this.players.length < 1){
             throw new Error("Not enough players");
         }
-        if(this.game === null){
-            this.game = new Game(this.players)
+        if(!this._game){
+            this._game = new Game(this.players)
         }
-        return this.game;
+        return this._game;
     }
 
-    public getCreator() : string {
-        return this.creatorSess;
+    public getCreator() : Player {
+        return this.creator;
     }
 
     getPlayers(): Array<Player> {
         return this.players;
     }
-
-    getCleanedGame(player: Player): Game | null {
-        //here need to return a duplicate game object with hidden data for the cards/hands/deck etc...
-        return this.game;
-    }
     
     public get uuid(): string {
         return this._uuid;
+    }
+
+    public get game(): Game | undefined{
+        return this._game
+    }
+
+    toJSON(user: Player | undefined){
+        return {
+            uuid: this._uuid,
+            players: this.players.map((player: Player) => player.toJson(user)),
+            maxPlayers: this.participants,
+            creator: this.creator.uid
+        }
     }
 }

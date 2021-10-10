@@ -50,8 +50,9 @@ function loadPlayersData(playersArray){
 }
 
 socket.on('gameStarted', data => {
+    console.log(data);
     showNursery(data.game.nursery);
-   //updateField(data.players);
+   updateField(data.game.players);
 });
 function showNursery(babies){
     nursery = document.getElementById('nursery');

@@ -1,26 +1,31 @@
-import { type } from 'os';
-import React, { useEffect, useState } from 'react';
-import SocketIOClient from 'socket.io-client';
+import React, { useState } from 'react';
+import SocketContext, { socket } from "components/socketContext";
+
+
+import Router from './components/Router'
 import './App.css';
-interface somedata{
-  data: string
-}
 
 function App() {
-  const [response, setResponse] = useState<somedata | undefined>(undefined);
-
-  useEffect(() => {
-    const socket = SocketIOClient("http://localhost:49160");
-    socket.on("init", data => {
-      console.log(data);
-      setResponse(data);
-    });
-  }, []);
-
-  return (
-    <p>
-      It's {response?.data}
-    </p>
+  const [isShookHand, setIsShookHand] = useState(false);
+  const req = new XMLHttpRequest()
+  req.open('GET', 'http://localhost:8000/api');
+  req.addEventListener("load", () => setIsShookHand(true));
+  //req.addEventListener("error", transferFailed); - SHOW ERROR ON SCREEN
+  req.send();
+  
+   return (
+    <div>
+      <h1>Unstable Unicorn</h1>
+      {!isShookHand ? (
+        <div>
+          CONNECTING!
+        </div>
+          ) : (
+            <SocketContext.Provider value={socket}>
+              <Router />
+            </SocketContext.Provider>
+          )}
+    </div>
   );
 }
 
