@@ -9,6 +9,7 @@ export interface IRoom{
     maxPlayers: number;
     players: Array<IPlayer>;
     creator: string;
+    game: string;
   }
   
 type Props = {
@@ -25,13 +26,13 @@ export default function RoomsPage({onGameStarted} : Props) {
     }
 
     useEffect(() => {
-        if(currentRoom){
-            setPlayer((currentRoom as IRoom).players.find((player: IPlayer) => player.currentPlayer));
+        if(currentRoom && currentRoom.game){
+            onGameStarted();
         }
     }, [currentRoom])
 
     useEffect(()=>{
-        socket?.emit('get_rooms', (data : any) => {console.log(data);setRooms(data.rooms); setCurrentRoom(data.currentRoom)});
+        socket?.emit('get_rooms', (data : any) => {setRooms(data.rooms); setCurrentRoom(data.currentRoom); setPlayer(data.player); console.log(data.player);});
         socket?.on('current_room_update', setCurrentRoom);
         socket?.on('room_list', setRooms);
         socket?.on('game_started', onGameStarted);
@@ -44,6 +45,7 @@ export default function RoomsPage({onGameStarted} : Props) {
             <br />
             <br />
             <br /><br /><br />
+            <h2>Hi {player?.name}</h2>
             <div style={{display:'inline-block'}}>
                 <h1>Rooms</h1>
                 {rooms.map(room => (<Button key={room} onClick={(e) => socket?.emit('join_room', room)}>Join Room {room}</Button>))}

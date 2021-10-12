@@ -1,6 +1,7 @@
 import { loadCardEffects, EventEffectMap } from "./effects/effectsLoader";
 import { generateUID } from "../utils"
-import { cardList, CardDescriptor } from "./cardLists";
+import { CardDescriptor, cardList} from "./cardLists";
+
 export class Card {
     name: string;
     effects : Array<EventEffectMap> = [];
@@ -9,7 +10,10 @@ export class Card {
     text: string;
     slug: string;
     
-    constructor(slug: string, desc: CardDescriptor){
+    constructor(slug: string, description: CardDescriptor | null = null){
+        const desc: CardDescriptor = description ?? (
+            (cardList.base as Object).hasOwnProperty(slug) ? (cardList.base as any)[slug] :
+             (cardList.expension as Object).hasOwnProperty(slug) ? (cardList.expension as any)[slug] : cardList.base.neigh);
         this.slug = slug;
         this.name = desc.name;
         loadCardEffects(this.name);

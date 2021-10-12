@@ -1,4 +1,5 @@
-import { Game } from "../GameModules/Game";
+import { IRoom } from "../DB/Schema/room";
+import Game from "../GameModules/Game";
 import { Player } from "../GameModules/Player";
 import { generateUID } from "../utils";
 
@@ -57,12 +58,40 @@ export class Room{
         return this._game
     }
 
-    toJSON(user: Player | undefined){
+    toJSON(user: Player | null){
         return {
             uuid: this._uuid,
             players: this.players.map((player: Player) => player.toJson(user)),
             maxPlayers: this.participants,
             creator: this.creator.uid
+        }
+    }
+    toDB() : IRoom{
+        return {
+            participants: this.participants,
+            creator: this.creator.uid,
+            players: this.getPlayers().map(player => player.uid),
+            uuid: this.uuid,
+            game: this.game?.uid ?? null,
+        }
+    }
+
+    static fromDB(iroom: IRoom, players : Array<Player>, game: Game | null) : Room{
+        const creator = players.find(player => player.uid === iroom.creator);
+        if(!creator){
+            throw `Creator ${iroom.creator} for room ${iroom.uuid} not found`;
+        }else{
+            const res = new this(iroom.participants, creator);
+            res._game = game ?? undefined;
+            res._uuid = iroom.uuid;
+            res.players = iroom.players.map(p => {
+                const res = players.find(player => player.uid === p);
+                if(!res){
+                    throw `Player ${p} for room ${iroom.uuid} not found`;
+                }
+                return res;
+            });
+            return res;
         }
     }
 }

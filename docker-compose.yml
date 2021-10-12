@@ -10,15 +10,21 @@ services:
       context: ./nginx
     ports:
       - "8000:80"
+    networks:
+      - unicorn_network
 
   unstable-server:
     build: ./server
     image: unstable_unicorn:latest
     tty: true
+    depends_on:
+      - mongodb
     volumes: 
       - ./server:/usr/src/app/server
     ports:
       - 9229:9229
+    networks:
+      - unicorn_network
 
   unstable-client:
     stdin_open: true
@@ -29,3 +35,20 @@ services:
       context: ./client
     volumes:
       - ./client:/app
+    networks:
+      - unicorn_network
+
+  mongodb:
+    image: mongo
+    restart: always
+    container_name: mongodb
+    volumes:
+      - ./data-node:/data/db
+    ports:
+      - 27017:27017
+    command: mongod --noauth
+    networks:
+      - unicorn_network
+networks:
+  unicorn_network:
+    driver: bridge

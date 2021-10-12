@@ -14,7 +14,6 @@ const startGameButton = document.getElementById("startGame");
 newgameButton.addEventListener('click', newGame);
 joingameButton.addEventListener('click', joinGame);
 startGameButton.addEventListener('click', () => {
-    console.log('startGame');
     socket.emit('startGame');
 });
 

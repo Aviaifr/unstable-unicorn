@@ -12,7 +12,7 @@ export default function GamePage() {
     const [gameState, setgameState] = useState('');
     const classes = useClasses(styles);
     useEffect(() => {
-        socket?.emit('get_game', setGame);
+        socket?.emit('get_game', (data: IGame) => {setGame(data)});
         socket?.on('game_update', setGame);
     },[socket]);
 

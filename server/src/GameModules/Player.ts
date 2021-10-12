@@ -1,21 +1,26 @@
 import { Card } from "./Card";
 import { Stable } from "./Stable";
 import { generateUID } from "../utils"
+import { IDBPlayer } from "../DB/Schema/player";
 
 export class Player {
-    clearSensitiveData(): Player {
-        return new Player(this.name, 'irrelevant!', this.stable, this.hand);
-    }
     name: string;
     hand: Array<Card>;
     stable: Stable;
-    uid: string
-    
+    private _uid: string;
+  
     constructor(name: string, uid: string | null = null, stable : Stable | null = null, hand: Array<Card> | null = null){
         this.name = name;
         this.stable = stable ?? new Stable();
-        this.uid = uid ?? generateUID();
+        this._uid = uid ?? generateUID();
         this.hand = hand ?? [];
+    }
+
+    public get uid(): string {
+        return this._uid;
+    }
+    public set uid(value: string) {
+        this._uid = value;
     }
 
     Draw(deck: Array<Card>) : void{
@@ -24,7 +29,8 @@ export class Player {
             this.hand.push(card);
         }
     }
-    toJson(player: Player | undefined){
+
+    toJson(player: Player | null){
         return {
             name: this.name,
             hand: this.hand.map((card:Card) => player === this ? card.toJson() : card.toAnonymousJson()),
@@ -32,6 +38,26 @@ export class Player {
             uid: this.uid,
             currentPlayer: player === this
         }
+    }
+    toDB(): IDBPlayer {
+        return {
+            name: this.name,
+            uid: this.uid,
+            hand: this.hand.map(card =>  card.slug),
+            stable: {
+                downgrades: this.stable.downgrade.map(card =>  card.slug),
+                upgrades: this.stable.upgrades.map(card =>  card.slug),
+                unicorns: this.stable.unicorns.map(card =>  card.slug),
+            }
+
+        }
+    }
+    static fromDB(data : IDBPlayer) {
+        return new this(
+            data.name,
+            data.uid,
+            Stable.fromDB(data.stable),
+            data.hand.map(slug => new Card(slug)))
     }
 }
 

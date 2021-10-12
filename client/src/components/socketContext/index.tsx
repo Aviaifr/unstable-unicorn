@@ -1,7 +1,14 @@
 import React from "react";
-import io from "socket.io-client";
+import io, { Socket } from "socket.io-client";
+import { DefaultEventsMap } from "socket.io-client/build/typed-events";
 
+let socketInstance: Socket | null= null;
 const SOCKET_URL = 'http://localhost:8000/';
-export const socket = io(SOCKET_URL);
-const SocketContext = React.createContext(socket);
+export function socket() : Socket{
+    if(!socketInstance){
+        socketInstance = io(SOCKET_URL, {withCredentials: true});
+    }
+    return socketInstance
+}
+const SocketContext = React.createContext<Socket<DefaultEventsMap, DefaultEventsMap> | null>(null);
 export default SocketContext;
