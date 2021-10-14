@@ -21,7 +21,7 @@ function App() {
   req.send();
   */
    return (
-    <div>
+    <div className='App'>
       <h1>Unstable Unicorn</h1>
       {!isShookHand ? (
         <div>

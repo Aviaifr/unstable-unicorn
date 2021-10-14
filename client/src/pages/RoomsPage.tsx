@@ -13,10 +13,11 @@ export interface IRoom{
   }
   
 type Props = {
-    onGameStarted: () => void
+    onGameStarted: () => void,
+    onNoUser: () => void,
 }
 
-export default function RoomsPage({onGameStarted} : Props) {
+export default function RoomsPage({onGameStarted, onNoUser} : Props) {
     const socket= useContext(SocketContext);
     const [rooms, setRooms] = useState<Array<string>>([]);
     const [currentRoom, setCurrentRoom] = useState<IRoom | null>(null);
@@ -32,7 +33,11 @@ export default function RoomsPage({onGameStarted} : Props) {
     }, [currentRoom])
 
     useEffect(()=>{
-        socket?.emit('get_rooms', (data : any) => {setRooms(data.rooms); setCurrentRoom(data.currentRoom); setPlayer(data.player); console.log(data.player);});
+        socket?.emit('get_rooms', (data : any) => {
+            setRooms(data.rooms);
+            setCurrentRoom(data.currentRoom);
+            !data.player ? onNoUser() : setPlayer(data.player);
+        });
         socket?.on('current_room_update', setCurrentRoom);
         socket?.on('room_list', setRooms);
         socket?.on('game_started', onGameStarted);
@@ -40,13 +45,8 @@ export default function RoomsPage({onGameStarted} : Props) {
 
     return (
         <div>
-            <br />
-            <br />
-            <br />
-            <br />
-            <br /><br /><br />
             <h2>Hi {player?.name}</h2>
-            <div style={{display:'inline-block'}}>
+            <div style={{display:'inline-block', height: '100vh'}}>
                 <h1>Rooms</h1>
                 {rooms.map(room => (<Button key={room} onClick={(e) => socket?.emit('join_room', room)}>Join Room {room}</Button>))}
             </div>

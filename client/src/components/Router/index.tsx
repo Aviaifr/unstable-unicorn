@@ -20,7 +20,7 @@ export default function Router() {
                 )
                 }/>
                 <Route path='/rooms' render={ () => (
-                    <RoomsPage onGameStarted={() => customHistory.push('/game')} />
+                    <RoomsPage onGameStarted={() => customHistory.push('/game')} onNoUser={ () => customHistory.push('/')} />
                 )}/>
                 <Route path='/game' component={GamePage}/>
             </Switch>

@@ -63,7 +63,8 @@ export class Room{
             uuid: this._uuid,
             players: this.players.map((player: Player) => player.toJson(user)),
             maxPlayers: this.participants,
-            creator: this.creator.uid
+            creator: this.creator.uid,
+            game: this.game?.uid ?? null,
         }
     }
     toDB() : IRoom{

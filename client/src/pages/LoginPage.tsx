@@ -20,7 +20,7 @@ export default function LoginPage({onLogInClickHandler, forceRename = false}: Pr
             }
             
         })
-    }, []);
+    }, [forceRename, onLogInClickHandler, socket]);
     useEffect(()=>{
         if(!userName || userName.length < 3){
             setErr('Name Too short');

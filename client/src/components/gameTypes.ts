@@ -1,10 +1,18 @@
 
 export interface IPlayingCard{
     name: string | undefined;
-    uid: string;
+    uid: string | undefined;
     type: string;
-    text: string;
+    text: string | undefined;
     slug: string | undefined;
+}
+
+export const emptyCard = {
+    name: undefined,
+    uid: undefined,
+    type: '',
+    text: undefined,
+    slug: undefined,
 }
 
 export interface IPlayer{
@@ -12,6 +20,24 @@ export interface IPlayer{
     name: string;
     uid: string;
     hand: Array<IPlayingCard>;
+    stable:{
+        unicorns: Array<IPlayingCard>,
+        upgrades: Array<IPlayingCard>,
+        downgrades: Array<IPlayingCard>,
+    }
+}
+
+export const emptyPlayer : IPlayer =
+{
+    currentPlayer: false,
+    name: '',
+    uid: '',
+    hand: [],
+    stable:{
+        unicorns: [],
+        upgrades: [],
+        downgrades: [],
+    }
 }
 
 

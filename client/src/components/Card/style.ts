@@ -18,9 +18,17 @@ export const styles = (theme: any) => ({
         },
 
     },
+    selected: {
+        borderColor: '#9ecaed',
+        boxShadow: '0 0 10px #9ecaed',
+    },
+    anonymousCard:{
+        borderRadius: '10px 10px',
+    },
     text: {
         height: '35px',
         marginBottom:0,
+        marginTop: 5,
     },
     icon:{
         width: '25px',
@@ -32,6 +40,7 @@ export const styles = (theme: any) => ({
         marginBottom: 0,
         position: 'relative',
         whiteSpace: 'nowrap',
+        overflow: 'hidden'
     },
     smallerTitle: {
         fontSize: '8px',
@@ -41,7 +50,7 @@ export const styles = (theme: any) => ({
         textAlign: 'initial',
         marginLeft: '2px',
         fontSize: '6px',
-        marginTop: '-12px',
+        marginTop: '-10px',
     },
     instant: {
         color: '#e91f20',

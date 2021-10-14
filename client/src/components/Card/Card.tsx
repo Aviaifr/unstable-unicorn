@@ -1,34 +1,41 @@
+import { useState } from 'react';
 import { Box } from '@material-ui/core';
+
 import useClasses from '../../hooks/useClasses'
 import {styles} from './style'
 import { IPlayingCard} from 'components/gameTypes'
+import cardback from '../../resources/cardback.jpg'
+import babyback from '../../resources/babyback.png'
+import getTarget from './CardTargets'
 
 type Props = {
-  onClickHandler: Function;
+  onClickHandler: (cardData?: IPlayingCard) => void;
   cardData: IPlayingCard,
+  selected?: boolean
 };
 //to be replaced with const?
 const serverRscUrl = 'http://localhost:8000/static-resources/cards';
 
-export default function Card({ onClickHandler, cardData }: Props) {
+export default function Card({ onClickHandler, cardData, selected}: Props) {
+  const isSelected = selected === undefined ? false : selected;
   const classes = useClasses(styles);
-  console.log(onClickHandler);
+  const {name, slug, text, type, uid} = cardData;
   return (
     <>
-      {cardData.name ? (
-        <Box onClick={()=> onClickHandler()} className={classes.card}>
+      {name ? (
+        <Box onClick={()=> {onClickHandler(!isSelected ? cardData ?? undefined: undefined)}} className={`${classes.card} ${isSelected? classes.selected : ''}`} data-carduid={uid}>
           <img src={`${serverRscUrl}/typeIcons/${cardData.type}.gif`} className={classes.icon} alt='typeIcon' />
           <p 
-            className={`${classes.title} ${cardData.name.length > 16 ? classes.smallerTitle: ''}`}>
+            className={`${classes.title} ${name.length > 16 ? classes.smallerTitle: ''}`}>
               {cardData.name}
             </p>
-          <img src={`${serverRscUrl}/images/${cardData.slug}.jpg`} alt='art'/>
-          <p className={`${classes.type} ${classes[cardData.type]}`}>Card Type: {cardData.type}</p>
-          <p className={classes.text}>{cardData.text}</p>
+          <img src={`${serverRscUrl}/images/${slug}.jpg`} alt='art'/>
+          <p className={`${classes.type} ${type ? classes[type] : ''}`}>Card Type: {type}</p>
+          <p className={classes.text}>{text}</p>
         </Box>
       ) : (
-        <Box onClick={()=>onClickHandler} className={classes.card}>
-          <p className={`${classes.title}`}>Unknown Card</p>
+        <Box className={classes.card} data-carduid={uid}>
+          <img src={type === 'baby' ? babyback : cardback} alt='anonymousCard' className={classes.anonymousCard}/>
         </Box>
       )}
   </>
