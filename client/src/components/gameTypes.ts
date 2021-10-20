@@ -40,12 +40,15 @@ export const emptyPlayer : IPlayer =
     }
 }
 
-
+export interface ExpectedAction{
+    action: string,
+    player: string
+}
 export interface IGame{
     players: Array<IPlayer>;
     discard: Array<IPlayingCard>;
     nursery: Array<IPlayingCard>;
     currentPlayer: string;
     uid: string;
-    pendingAction:Map<string, string>;
+    pendingAction:Array<ExpectedAction>;
 }

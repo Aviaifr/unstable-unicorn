@@ -1,6 +1,9 @@
+import EventEmitter from "events";
 import { loadCardEffects, EventEffectMap } from "./effects/effectsLoader";
 import { generateUID } from "../utils"
 import { CardDescriptor, cardList} from "./cardLists";
+import { Player } from "./Player";
+import { Events } from "./Events";
 
 export class Card {
     name: string;
@@ -16,10 +19,21 @@ export class Card {
              (cardList.expension as Object).hasOwnProperty(slug) ? (cardList.expension as any)[slug] : cardList.base.neigh);
         this.slug = slug;
         this.name = desc.name;
-        loadCardEffects(this.name);
+        this.effects = loadCardEffects(this.slug);
         this.uid = generateUID();
         this.type = desc.type;
         this.text = desc.text;
+    }
+
+    registerEvents(em: EventEmitter, owner: Player) {
+        this.effects.forEach(ef => {
+            const fn = ef.fn(em, owner);
+            const discarded = (card: Card) => {
+                this === card && em.off(ef.eventName, fn) && em.off(Events.DISCARDED, discarded);
+            }
+            em.on(ef.eventName, fn);
+            em.on(Events.DISCARDED, discarded);
+        })
     }
 
     toAnonymousJson(){

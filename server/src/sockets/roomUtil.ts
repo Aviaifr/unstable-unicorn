@@ -5,19 +5,23 @@ import Mongoose from 'mongoose'
 import { Room } from '../Rooms/Room';
 import { getSessionPlayer , sessionsPlayers } from "./playerUtil";
 import { Player } from "../GameModules/Player";
-import SessionRoom, { ISessionRoom }from '../DB/Schema/room'
+import SessionRoom, { ISessionRoom }from '../DB/Schema/sessionRoom'
+import DBRooms, { IRoom }from '../DB/Schema/room'
 import DBGames, { IGame } from '../DB/Schema/game'
 import Game from '../GameModules/Game'
-import room from "../DB/Schema/room";
 
 let io: Server | null = null;
 export function initRooms(ioServer : Server){
   io = ioServer;
   DBGames.find(function (err, games){
-    SessionRoom.find(function (err, sessionRooms) {
+    DBRooms.find(function (err, rooms){
       if (err) return console.error(err);
-      sessionRooms.forEach(sessionRoom => populateRoomSession(sessionRoom, games));
-    });
+      rooms.forEach(room => populateRoom(room, games));
+      SessionRoom.find(function (err, sessionRooms) {
+        if (err) return console.error(err);
+        sessionRooms.forEach(sessionRoom => populateRoomSession(sessionRoom));
+      });
+    });  
   });
 }
 
@@ -47,7 +51,8 @@ export function createNewRoom(socket: Socket<DefaultEventsMap, DefaultEventsMap,
     room = new Room(2, player);
     RoomsMap.set(room.uuid, room);
     SessionsRoomsMap.set(sessID, room);
-    SessionRoom.create({session: sessID, room: room.toDB()});
+    DBRooms.create(room.toDB())
+    SessionRoom.create({session: sessID, room: room.uuid});
     socket.join(`room_${room.uuid}`);
     io?.emit('room_list', Array.from(RoomsMap.keys()));
     io?.sockets.adapter.rooms.get(`room_${room.uuid}`)?.forEach( clientId => {
@@ -67,6 +72,8 @@ export function joinRoom(roomName: string, socket: Socket<DefaultEventsMap, Defa
   }
   if(room){
     SessionsRoomsMap.set(sessID, room);
+    SessionRoom.create({session: sessID, room: room.uuid});
+    DBRooms.findOneAndUpdate({uid: room.uuid}, {$addToSet:{players: player.uid}},{}, (err, doc,res) => {});
     socket.join(`room_${room.uuid}`);
     io?.emit('room_list', Array.from(RoomsMap.keys()));
     io?.sockets.adapter.rooms.get(`room_${room.uuid}`)?.forEach( clientId => {
@@ -77,18 +84,26 @@ export function joinRoom(roomName: string, socket: Socket<DefaultEventsMap, Defa
 }
 
 
-function populateRoomSession(sessionRoom: Mongoose.Document<any, any, ISessionRoom> & ISessionRoom & { _id: Mongoose.Types.ObjectId; }, games: (Mongoose.Document<any, any, IGame> & IGame & { _id: Mongoose.Types.ObjectId; })[]): void {
-  const relevantPlayers = Array.from(sessionsPlayers.values())
-    .filter((player) => player && (player.uid === sessionRoom.room.creator || sessionRoom.room.players.includes(player.uid))) as Array<Player>;
-  const game = games.find(game => game.uid === sessionRoom.room.game);
-  if(sessionRoom.room.game && !game){
-    throw `Could not find game`;
-  }else{
-    const room = Room.fromDB(sessionRoom.room, relevantPlayers, !game ? null : Game.fromDB(game, relevantPlayers));
-    if(!RoomsMap.has(room.uuid)){
-      RoomsMap.set(room.uuid, room);
+function populateRoomSession(sessionRoom: Mongoose.Document<any, any, ISessionRoom> & ISessionRoom & { _id: Mongoose.Types.ObjectId; }): void {
+    const room = RoomsMap.get(sessionRoom.room)
+    if(!room){
+      throw `Could not find room`;
     }
     SessionsRoomsMap.set(sessionRoom.session, room);
+}
+
+function populateRoom(room: Mongoose.Document<any, any, IRoom> & IRoom & { _id: Mongoose.Types.ObjectId; }, games: (Mongoose.Document<any, any, IGame> & IGame & { _id: Mongoose.Types.ObjectId; })[]): void {
+  const relevantPlayers =
+  Array.from(sessionsPlayers.values())
+    .filter((player) => player && (player.uid === room.creator || room.players.includes(player.uid))) as Array<Player>;
+  const game = games.find(game => game.uid === room.game);
+  if(room.game && !game){
+    throw `Could not find game`;
+  }else{
+    const roomObj = Room.fromDB(room, relevantPlayers, !game ? null : Game.fromDB(game, relevantPlayers));
+    if(!RoomsMap.has(room.uuid)){
+      RoomsMap.set(room.uuid, roomObj);
+    }
   }
 }
 

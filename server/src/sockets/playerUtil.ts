@@ -39,10 +39,20 @@ function populatePlayerSession(sessionPlayer: ISessionUser & { _id: Mongoose.Typ
 }
 
 
-export function updateRoomPlayersHand(roomPLayers: Array<Player>) {
+export function updateRoomPlayers(roomPLayers: Array<Player>) {
   roomPLayers.forEach(player => {
     const hand = Array.from(player.toDB().hand);
-    SessionPlayer.findOneAndUpdate({'player.uid' : player.uid}, {$push:{'player.hand':{$each: hand}}},{}, (error, res) => {
+    const upgrade = Array.from(player.toDB().stable.upgrades);
+    const downgrades = Array.from(player.toDB().stable.downgrades);
+    const unicorns = Array.from(player.toDB().stable.unicorns);
+    SessionPlayer.findOneAndUpdate({'player.uid' : player.uid},
+    {
+      $addToSet:{
+        'player.hand':{$each: hand},
+        'player.stable.upgrades': {$each: upgrade},
+        'player.stable.downgrades': {$each: downgrades},
+        'player.stable.unicorns': {$each: unicorns},
+      }},{}, (error, res) => {
       if(!res){
         console.log('failed to update player hand')
       }

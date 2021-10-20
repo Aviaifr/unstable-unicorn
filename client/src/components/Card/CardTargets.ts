@@ -1,21 +1,22 @@
 
-export default function getTarget(type: string, special: string | null = null) : Array<string> {
-  const targets = [];
+export default function getTarget(type: string, special: string | null = null) : string {
+  let targets = '';
   switch(type){
     case 'instant': 
       break;
     case 'magic':
-      targets.push('discard');
+      targets = 'discard';
       break;
     case 'upgrade':
+      targets = 'upgrade';
+      break;
     case 'downgrade':
-      targets.push('enemytable');
-      targets.push('ownStable');
+      targets = 'downgrade';
       break;
     case 'baby':
     case 'magical':
     case 'basic':
-      targets.push('ownStable');
+      targets = 'stable';
   }
   return targets;
 }

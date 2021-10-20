@@ -6,12 +6,21 @@ import './App.css';
 
 function App() {
   const [isShookHand, setIsShookHand] = useState(false);
-  useEffect(() => {
+  function connect(){
     fetch('http://localhost:8000/api',{
       method: 'GET',
       mode: 'cors',
       credentials: 'include'
-    }).then(response => setIsShookHand(true))
+    }).then(response => {
+      if(response.status === 200 && !isShookHand){
+        setIsShookHand(true);
+      }else{
+        setTimeout(connect, 2000)
+      }
+    })
+  }
+  useEffect(() => {
+    connect();
   }, [])
   /*
   const req = new XMLHttpRequest()

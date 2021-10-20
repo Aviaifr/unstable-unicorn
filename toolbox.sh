@@ -1,6 +1,6 @@
 #!/bin/bash
 if [ "$1" == "up" ]; then
-    docker-compose up -d
+    docker-compose up
 fi
 if [ "$1" == "build" ]; then
     docker-compose build

@@ -5,7 +5,7 @@ import { Express, RequestHandler } from 'express';
 
 import { getSessionPlayer, setUserName} from './playerUtil'
 import { createNewRoom, getRoomsData, initRooms, joinRoom } from "./roomUtil";
-import { initGames, returnGameData, startGame } from "./gameUtils";
+import { expectedAction, initGames, playCard, returnGameData, startGame } from "./gameUtils";
 
 export const initSockets = (app : Express,server: http.Server, session: RequestHandler) => {
     const io = new Server(server, {
@@ -25,9 +25,11 @@ export const initSockets = (app : Express,server: http.Server, session: RequestH
         socket.on('create_room', () => createNewRoom(socket) );
         socket.on('get_rooms', (fn: CallableFunction) => getRoomsData(socket, fn));
         socket.on('join_room', data => joinRoom(data, socket));
-        socket.on('get_game', (fn: CallableFunction) => returnGameData(socket, fn))
-        socket.on('start_game', () => startGame(socket))
-        socket.on('get_player_name', (fn: CallableFunction) =>  fn(getSessionPlayer(sessID)?.name))
+        socket.on('get_game', (fn: CallableFunction) => returnGameData(socket, fn));
+        socket.on('start_game', () => startGame(socket));
+        socket.on('get_player_name', (fn: CallableFunction) =>  fn(getSessionPlayer(sessID)?.name));
+        socket.on('play_card', (data) => playCard(socket, data));
+        socket.on("pendingAction", (action, choice) => expectedAction(socket, action, choice));
     });
 }
 

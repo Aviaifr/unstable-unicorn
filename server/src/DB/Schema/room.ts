@@ -4,28 +4,17 @@ import Mongoose, { Schema } from 'mongoose'
 export interface IRoom{
     participants: number;
     creator: string,
-    players: Array<string>,
+    players: string[],
     uuid: string,
     game: string | null,
 }
 
-export interface ISessionRoom {
-    session: string,
-    room: IRoom
-}
-
-export default Mongoose.model<ISessionRoom>('SessionRoom', new Schema<ISessionRoom>(
-{
-    session: String,
-    room: {
+export default Mongoose.model<IRoom>('Rooms', new Schema<IRoom>(
+    {
         participants: Number,
         creator: String,
-        players: {
-            type: Schema.Types.Array,
-            of: String
-        },
+        players: Array,
         uuid: String,
         game: String,
     }
-}
 ));

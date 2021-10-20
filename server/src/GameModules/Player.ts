@@ -2,6 +2,8 @@ import { Card } from "./Card";
 import { Stable } from "./Stable";
 import { generateUID } from "../utils"
 import { IDBPlayer } from "../DB/Schema/player";
+import EventEmitter from "events";
+import Game from "./Game";
 
 export class Player {
     name: string;
@@ -23,10 +25,18 @@ export class Player {
         this._uid = value;
     }
 
-    Draw(deck: Array<Card>) : void{
+    Draw(deck: Array<Card>, em : EventEmitter ) : void{
         let card: Card | null = deck.pop() ??  null;
         if(card){
             this.hand.push(card);
+            card.registerEvents(em, this);
+        }
+    }
+
+    removeCardFromHand(card : Card) {
+        const index = this.hand.indexOf(card);
+        if (index > -1) {
+            this.hand.splice(index, 1);
         }
     }
 
@@ -45,7 +55,7 @@ export class Player {
             uid: this.uid,
             hand: this.hand.map(card =>  card.slug),
             stable: {
-                downgrades: this.stable.downgrade.map(card =>  card.slug),
+                downgrades: this.stable.downgrades.map(card =>  card.slug),
                 upgrades: this.stable.upgrades.map(card =>  card.slug),
                 unicorns: this.stable.unicorns.map(card =>  card.slug),
             }
@@ -58,6 +68,11 @@ export class Player {
             data.uid,
             Stable.fromDB(data.stable),
             data.hand.map(slug => new Card(slug)))
+    }
+
+    registerCards(em: EventEmitter): void {
+        this.hand.forEach(card => card.registerEvents(em, this));
+        this.stable.registerEvents(em, this);
     }
 }
 

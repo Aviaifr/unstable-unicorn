@@ -16,7 +16,7 @@ services:
   unstable-server:
     build: ./server
     image: unstable_unicorn:latest
-    tty: true
+    #tty: true
     depends_on:
       - mongodb
     volumes: 

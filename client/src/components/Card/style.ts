@@ -31,7 +31,7 @@ export const styles = (theme: any) => ({
         marginTop: 5,
     },
     icon:{
-        width: '25px',
+        width: '30px',
         position: 'absolute',
         left: '0',
         borderRadius: '10px 0 0 0',    

@@ -1,12 +1,10 @@
-import { useState } from 'react';
 import { Box } from '@material-ui/core';
 
 import useClasses from '../../hooks/useClasses'
 import {styles} from './style'
-import { IPlayingCard} from 'components/gameTypes'
+import {IPlayingCard} from 'components/gameTypes'
 import cardback from '../../resources/cardback.jpg'
 import babyback from '../../resources/babyback.png'
-import getTarget from './CardTargets'
 
 type Props = {
   onClickHandler: (cardData?: IPlayingCard) => void;

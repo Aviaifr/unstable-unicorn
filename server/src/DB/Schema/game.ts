@@ -6,6 +6,7 @@ export interface IGame{
     deck: Array<string>,
     discard: Array<string>,
     nursery: Array<string>,
+    inPlay: Array<string>,
     currentPlayer: string,
     uid: string,
     hasStarted: boolean,
