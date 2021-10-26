@@ -6,12 +6,16 @@ import { Player } from "./Player";
 import { Events } from "./Events";
 
 export class Card {
+    isDestroyable(): boolean {
+        return this.destroyable;
+    }
     name: string;
     effects : Array<EventEffectMap> = [];
     uid: string;
     type:string;
     text: string;
     slug: string;
+    destroyable: boolean = true;
     
     constructor(slug: string, description: CardDescriptor | null = null){
         const desc: CardDescriptor = description ?? (
@@ -27,7 +31,7 @@ export class Card {
 
     registerEvents(em: EventEmitter, owner: Player) {
         this.effects.forEach(ef => {
-            const fn = ef.fn(em, owner);
+            const fn = ef.fn(em, owner, this);
             const discarded = (card: Card) => {
                 this === card && em.off(ef.eventName, fn) && em.off(Events.DISCARDED, discarded);
             }

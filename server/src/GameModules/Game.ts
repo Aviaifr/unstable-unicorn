@@ -10,19 +10,27 @@ const INITIAL_HAND_SIZE = 5;
 
 interface MyClassEvents {
     [Events.CARD_PLAYED]: (card: Card, player: Player, area: string, targetedPlayer?: Player ) => void;
-    [Events.ADD_GAME_ACTION]: (actionName: string, player: Player) => void;
+    [Events.ADD_GAME_ACTION]: (actionName: string, player: Player, isBlocking: boolean, initiator?: Card) => void;
     [Events.RESOLVE_CHAIN]: () => void;
     [Events.BEFORE_RESOLVE_CHAIN]:  () => void;
     [Events.DISCARDED]: (card: Card) => void;
     [Events.ON_PLAYER_ACTION]: (action: string, choice: string, player: Player) => void;
-    [Events.REMOVE_EXPECTED_ACTION]: (actionToRemove: string, player: Player) => void;
+    [Events.REMOVE_EXPECTED_ACTION]: (actionToRemove: string, player: Player, initiatingCard?: Card) => void;
     [Events.PUSH_TO_CHAIN]: (card: Card) => void;
     [Events.DISCARD_FROM_CHAIN_IF_EXISTS]: (card: Card, limit?: number) => void;
+    [Events.BEFORE_TURN_START]: (turnPlayer: Player) => void;
+    [Events.TURN_START] : (turnPlayer: Player) => void;
+    [Events.DESTROYED]: (cardID: string, initiatingCard?: Card) => void;
+    [Events.AFTER_DESTROY]: (destroyerCard: Card, initiatingCard?: Card) => void;
+    [Events.FORCE_END_TURN] : () => void;
   }
 
 interface ExpectedAction {
     player: string,
-    action: string
+    action: string,
+    blocking?: boolean,
+    data?: Array<string>
+    initiator?: Card
 }
 export default class Game extends TypedEmitter<MyClassEvents>{
     players : Array<Player> = [];
@@ -35,6 +43,7 @@ export default class Game extends TypedEmitter<MyClassEvents>{
     hasStarted: boolean = false;
     expectedActions: Array<ExpectedAction> = [];
     currentChain: Array<Card> = [];
+    pendingActions: Array<ExpectedAction> = [];
 
     constructor(players: Array<Player>, template: boolean = false){
         super();
@@ -63,10 +72,33 @@ export default class Game extends TypedEmitter<MyClassEvents>{
     }
 
     private initEvents() {
-        this.on(Events.ADD_GAME_ACTION, (actionName, byPlayer) => this.expectedActions.push({action: actionName, player: byPlayer.uid}));
-        this.on(Events.REMOVE_EXPECTED_ACTION, (actionToRemove, byPlayer) => 
-            this.expectedActions = this.expectedActions.filter(action => action.action !== actionToRemove && action.player !== byPlayer.uid)
-        );
+        this.on(Events.ADD_GAME_ACTION, (actionName, byPlayer, isBlocking?, initiator?) => {
+            if(isBlocking){
+                this.pendingActions = this.expectedActions;
+                this.expectedActions = [];
+            }
+            let data: Array<string> = [];
+            switch(actionName){
+                case 'destroy':
+                    data = this.getDestroyableCards(byPlayer);
+                    break;
+            }
+            this.expectedActions.push({
+                action: actionName,
+                player: byPlayer.uid,
+                blocking: isBlocking,
+                data: data, initiator: initiator});
+        });
+        this.on(Events.REMOVE_EXPECTED_ACTION, (actionToRemove, byPlayer , initiatingCard) => {
+            this.expectedActions = this.expectedActions.filter(action => 
+                !(action.action === actionToRemove
+                && action.player === byPlayer.uid
+                && (!initiatingCard || initiatingCard === action.initiator)))
+            if(!this.expectedActions.find(action => action.blocking)){
+                this.expectedActions = this.expectedActions.concat(this.pendingActions);
+                this.pendingActions = []; 
+            }
+        });
         this.on(Events.PUSH_TO_CHAIN, (card) => this.currentChain.push(card));
         this.on(Events.DISCARD_FROM_CHAIN_IF_EXISTS, (card, limit) => {
             if(this.currentChain.includes(card)){
@@ -78,6 +110,34 @@ export default class Game extends TypedEmitter<MyClassEvents>{
             }
         });
         this.on(Events.BEFORE_RESOLVE_CHAIN, () => this.expectedActions.length === 0 && this.emit(Events.RESOLVE_CHAIN));
+        this.on(Events.ON_PLAYER_ACTION,(action, choice, player) => {
+            switch(action){
+                case 'draw':
+                    choice === 'y' && this.Draw(player);
+                    break;
+                case 'destroy':
+                    this.destroyCard(choice);
+                    break;
+            }
+        });
+        this.on(Events.TURN_START, (turnPlayer) => {
+            this.expectedActions.push({action: 'draw', player: turnPlayer.uid, blocking: false})
+        });
+        this.on(Events.AFTER_DESTROY, this.afterDestroy);
+        this.on(Events.FORCE_END_TURN, this.nextPlayer);
+    }
+
+    private destroyCard(choice: string) {
+        const destroyAction = this.expectedActions.find(action => action.action === 'destroy');
+        if(destroyAction){
+            this.emit(Events.DESTROYED, choice, destroyAction.initiator); //need user/stable to listen to dfestroy event and emit AFTER_DESTROY
+        }
+    }
+
+    private afterDestroy(card: Card, initiatingCard?: Card){
+        card.type === 'baby' ? this.nursery.push(card) : this.discard.push(card);
+        console.log('avihai');
+        this.emit(Events.REMOVE_EXPECTED_ACTION, 'destroy', this.currentPlayer, initiatingCard);
     }
 
     DoAction(action: string, choice: string, player: Player) {
@@ -99,6 +159,9 @@ export default class Game extends TypedEmitter<MyClassEvents>{
     }
 
     Play(cardUid: string, area: string, targetedPlayer?:string){
+        if(this.expectedActions.find(action=>action.blocking)){
+            return;
+        }
         const card: Card | undefined = this.currentPlayer.hand.find(card => card.uid === cardUid);
         const player : Player | undefined = this.players.find(player => player.uid === targetedPlayer);
         if(!card){
@@ -114,9 +177,10 @@ export default class Game extends TypedEmitter<MyClassEvents>{
             }
             player.stable.addCard(card, area);
         }
-        player?.removeCardFromHand(card);
+        this.emit(Events.REMOVE_EXPECTED_ACTION, 'draw', this.currentPlayer);
+        this.currentPlayer?.removeCardFromHand(card);
         this.currentChain.push(card);
-        this.emit(Events.CARD_PLAYED, card, this.currentPlayer, area, player)
+        this.emit(Events.CARD_PLAYED, card, this.currentPlayer, area, player);
         if(this.expectedActions.length === 0){
             this.nextPlayer();
         }else{
@@ -125,8 +189,26 @@ export default class Game extends TypedEmitter<MyClassEvents>{
     }
 
     nextPlayer() {
+        this.expectedActions = [];
         const currentPlayerIndex = this.players.indexOf(this.currentPlayer);
         this.currentPlayer = currentPlayerIndex === this.players.length - 1 ? this.players[0] : this.players[currentPlayerIndex + 1];
+        this.expectedActions.push({action: 'draw', player: this.currentPlayer.uid, blocking: true})
+        this.emit(Events.BEFORE_TURN_START, this.currentPlayer);
+    }
+
+    Draw(player: Player){
+        if(player !== this.currentPlayer){
+            return;
+        }
+        player.Draw(this.deck, this);
+        var drawAction = this.expectedActions.find(action => action.action === 'draw' && action.player === this.currentPlayer.uid);
+        if(drawAction && drawAction.blocking){
+            this.emit(Events.REMOVE_EXPECTED_ACTION,'draw', player);
+            this.emit(Events.TURN_START,player);
+        }else{
+            this.emit(Events.REMOVE_EXPECTED_ACTION,'draw', player);
+            this.nextPlayer();
+        }
     }
 
     putCardInPlay(card: Card) {
@@ -140,7 +222,11 @@ export default class Game extends TypedEmitter<MyClassEvents>{
             nursery: this.nursery.map(card => card.toJson()),
             currentPlayer: this.currentPlayer.uid,
             uid: this.uid,
-            pendingAction: this.expectedActions.filter(action => action.player === currentPlayer?.uid),
+            pendingAction: this.expectedActions
+                .filter(action => action.player === currentPlayer?.uid).map(action => {
+                    let {initiator, ...res} = action;
+                    return res;
+                }),
         }
     }
 
@@ -162,12 +248,15 @@ export default class Game extends TypedEmitter<MyClassEvents>{
         res.deck = data.deck.map(slug => new Card(slug));
         res.discard = data.discard.map(slug => new Card(slug));
         res.nursery = data.nursery.map(slug => new Card(slug));
-        res.inPlay = data.inPlay?.map(slug => new Card(slug));
+        res.inPlay = data.inPlay?.map(slug => new Card(slug)) ?? [];
         res.players = players,
         res.currentPlayer = players.find(player => player.uid === data.currentPlayer) ?? players[0];
         res.hasStarted = data.hasStarted;
         res.uid = data.uid;
-        players.forEach(player => player.registerCards(res))
+        players.forEach(player => player.registerCards(res));
+        res.expectedActions.push({action: 'draw', player: res.currentPlayer.uid, blocking: true})
+        res.emit(Events.BEFORE_TURN_START, res.currentPlayer);
+
         return res;
     }
     
@@ -180,6 +269,11 @@ export default class Game extends TypedEmitter<MyClassEvents>{
             }
         });
     }
-}
 
+    private getDestroyableCards(destroyingPlayer: Player): Array<string> {
+        return this.players.filter(player => player !== destroyingPlayer)
+            .map(player => player.getDestroyable())
+            .reduce((arr1, arr2) => arr1.concat(arr2),[]);
+    }
+}
 

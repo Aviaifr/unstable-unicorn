@@ -30,6 +30,7 @@ export default function RoomsPage({onGameStarted, onNoUser} : Props) {
         if(currentRoom && currentRoom.game){
             onGameStarted();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentRoom])
 
     useEffect(()=>{
@@ -41,6 +42,7 @@ export default function RoomsPage({onGameStarted, onNoUser} : Props) {
         socket?.on('current_room_update', setCurrentRoom);
         socket?.on('room_list', setRooms);
         socket?.on('game_started', onGameStarted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     },[socket]);
 
     return (

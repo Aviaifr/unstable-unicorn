@@ -42,7 +42,8 @@ export const emptyPlayer : IPlayer =
 
 export interface ExpectedAction{
     action: string,
-    player: string
+    player: string,
+    data?: Array<string>
 }
 export interface IGame{
     players: Array<IPlayer>;

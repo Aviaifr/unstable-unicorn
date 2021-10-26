@@ -19,8 +19,16 @@ export const styles = (theme: any) => ({
 
     },
     selected: {
+        borderColor: '#3fe607',
+        boxShadow: '0 0 10px #3fe607',
+    },
+    activatable: {
         borderColor: '#9ecaed',
         boxShadow: '0 0 10px #9ecaed',
+    },
+    targeted: {
+        borderColor: 'red',
+        boxShadow: '0 0 10px red',        
     },
     anonymousCard:{
         borderRadius: '10px 10px',

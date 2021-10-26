@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import SocketContext, { socket } from "components/socketContext";
 
 import Router from './components/Router'
@@ -19,16 +19,12 @@ function App() {
       }
     })
   }
+
   useEffect(() => {
     connect();
-  }, [])
-  /*
-  const req = new XMLHttpRequest()
-  req.open('GET', 'http://localhost:8000/api');
-  req.addEventListener("load", () => );
-  //req.addEventListener("error", transferFailed); - SHOW ERROR ON SCREEN
-  req.send();
-  */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[])
+  
    return (
     <div className='App'>
       <h1>Unstable Unicorn</h1>

@@ -6,6 +6,9 @@ import EventEmitter from "events";
 import Game from "./Game";
 
 export class Player {
+    getDestroyable(): Array<string> {
+        return this.stable.getDestroyableCards();
+    }
     name: string;
     hand: Array<Card>;
     stable: Stable;

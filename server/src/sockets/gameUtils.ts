@@ -102,3 +102,22 @@ function updateRoomGameUpdate(roomUuid: string, game: Game){
     io?.to(clientId).emit('game_update', game.toJson(getSessionPlayer(sid)));
   });
 }
+
+export function saveGame(socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap>): void {
+  const sessID = (socket.handshake as any).sessionID;
+  const room: Room | null | undefined = SessionsRoomsMap.get(sessID);
+  const player = getSessionPlayer(sessID)
+  if(!room || !player){
+    //you are not in any game
+    return;
+  }
+  const game = room.game;
+  if(game){
+    DBGame.findOneAndUpdate({uid : game.uid}, {$set: {...game.toDB()}}, {}, (error, res) => {
+      if (!res) {
+        DBGame.create(game.toDB());
+      }
+        updateRoomPlayers(room.getPlayers());
+    });
+  }
+}

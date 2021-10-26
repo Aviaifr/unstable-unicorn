@@ -5,7 +5,7 @@ import { Express, RequestHandler } from 'express';
 
 import { getSessionPlayer, setUserName} from './playerUtil'
 import { createNewRoom, getRoomsData, initRooms, joinRoom } from "./roomUtil";
-import { expectedAction, initGames, playCard, returnGameData, startGame } from "./gameUtils";
+import { expectedAction, initGames, playCard, returnGameData, saveGame, startGame } from "./gameUtils";
 
 export const initSockets = (app : Express,server: http.Server, session: RequestHandler) => {
     const io = new Server(server, {
@@ -30,6 +30,7 @@ export const initSockets = (app : Express,server: http.Server, session: RequestH
         socket.on('get_player_name', (fn: CallableFunction) =>  fn(getSessionPlayer(sessID)?.name));
         socket.on('play_card', (data) => playCard(socket, data));
         socket.on("pendingAction", (action, choice) => expectedAction(socket, action, choice));
+        socket.on('save', () => saveGame(socket));
     });
 }
 
