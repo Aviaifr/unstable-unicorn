@@ -47,6 +47,7 @@ export default function Card({ onClickHandler, cardData, selected }: Props) {
       };
     } else {
       setTargeted(false);
+      onClick.current = onClickHandler;
     }
   }, [socket, targetedList, uid]);
 
