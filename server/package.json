@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Unstable Unicrn Server",
   "author": "Avihai Franco",
-  "main": "server/index.ts",
+  "main": "./index.ts",
   "scripts": {
-    "start": "node-dev server/index.ts"
+    "start": "node-dev ./index.ts"
   },
   "dependencies": {
     "connect-mongo": "^4.6.0",
