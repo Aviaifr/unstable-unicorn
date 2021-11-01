@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { Box } from "@material-ui/core";
 import useClasses from "../../hooks/useClasses";
 import { styles } from "./style";
-import { IPlayingCard } from "components/gameTypes";
+import { IPlayingCard, emptyCard} from "components/gameTypes";
 import cardback from "../../resources/cardback.jpg";
 import babyback from "../../resources/babyback.png";
 import ActivatableList from "../context/ActivateableCardsContext";
@@ -40,16 +40,16 @@ export default function Card({ onClickHandler, cardData, selected }: Props) {
   }, [activatable, classes, selected, targeted]);
 
   useEffect(() => {
-    if (targetedList.includes(uid ?? "")) {
+    if (targetedList.targets.includes(uid ?? "")) {
       setTargeted(true);
       onClick.current = () => {
-        socket?.emit("pendingAction", "destroy", uid);
+        socket?.emit("pendingAction", targetedList.targetContext, uid);
       };
     } else {
       setTargeted(false);
       onClick.current = onClickHandler;
     }
-  }, [socket, targetedList, uid]);
+  }, [onClickHandler, socket, targetedList, uid]);
 
   useEffect(() => {
     if (activatables.includes(uid ?? "")) {
@@ -85,8 +85,8 @@ export default function Card({ onClickHandler, cardData, selected }: Props) {
       )}
       {name ? (
         <Box
-          onClick={() => {
-            onClick.current(!selected ? cardData ?? undefined : undefined); // ?? part needed?
+          onClick={(e) => {
+            onClick.current(!selected ? cardData ?? emptyCard : emptyCard); // ?? part needed?
           }}
           className={classNames(classes.card, mainCardClass)}
           data-carduid={uid}

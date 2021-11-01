@@ -33,7 +33,9 @@ export class Card {
         this.effects.forEach(ef => {
             const fn = ef.fn(em, owner, this);
             const discarded = (card: Card) => {
-                this === card && em.off(ef.eventName, fn) && em.off(Events.DISCARDED, discarded);
+                if(this === card){
+                     em.off(ef.eventName, fn) && em.off(Events.DISCARDED, discarded)
+                };
             }
             em.on(ef.eventName, fn);
             em.on(Events.DISCARDED, discarded);

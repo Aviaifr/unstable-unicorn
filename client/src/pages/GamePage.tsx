@@ -18,8 +18,9 @@ import getTarget from "components/Card/CardTargets";
 import DiscardPile from "components/DiscardPile";
 import NeighDialog from "components/NeighDialog";
 import ActivateableContext from "components/context/ActivateableCardsContext";
-import TargetedContext from "components/context/TargetableCardsContext";
+import TargetedContext, { TargetedContextType, emptyTargetContext } from "components/context/TargetableCardsContext";
 import Hand from "components/Hand";
+import CardContainer from "components/CardContrainer"
 
 export default function GamePage() {
   const socket = useContext(SocketContext);
@@ -29,12 +30,14 @@ export default function GamePage() {
   const [playerTarget, setPlayerTargets] = useState("");
   const [enemyTarget, setEnemyTargets] = useState("");
   const [selectedCardUid, setSelectedCardUid] = useState("");
+  const [discardHighlight, setDiscardHighlight] = useState(false);
   const [expectedActions, setExpectedActions] = useState<Array<ExpectedAction>>(
     []
   );
   const [showNeighDialog, setShowNeighDialog] = useState(false);
+  const [selectingHand, setSelectingHand] = useState(false);
   const [activateableCards, setActivateableCards] = useState<Array<string>>([]);
-  const [targetCards, setTargetCards] = useState<Array<string>>([]);
+  const [targetCards, setTargetCards] = useState<TargetedContextType>(emptyTargetContext);
   const classes = useClasses(styles);
 
   useEffect(() => {
@@ -60,18 +63,32 @@ export default function GamePage() {
   useEffect(() => {
     console.log(expectedActions);
     setActivateableCards([]);
-    setTargetCards([]);
+    setTargetCards(emptyTargetContext);
     const activateables: Array<string> = [];
     expectedActions.forEach((action) => {
       switch (action.action) {
         case "neigh":
-          setShowNeighDialog(true);
-          break;
+            setShowNeighDialog(true);
+            break;
         case "destroy":
-          setTargetCards(action.data ?? []);
+        case "sacrifice":
+            setTargetCards({targetContext: action.action, targets: action.data?? []});
+            break;
+        case "hand_select":
+            setSelectingHand(true);
+            break;
+        case "steal":
+          let selectedHandPlayer = action.data ? action.data[0] : null;
+          if(!selectedHandPlayer){
+            console.log('Error - no hand from BE');
+          }
+          //in the future need to search from players array
+          let targetPlayerHand = player.uid === selectedHandPlayer ? player.hand : otherHand;
+          setTargetCards({targetContext: action.action, targets: targetPlayerHand.map(card => card.uid ?? '')});
           break;
         default:
           activateables.push(action.action);
+
       }
     });
     setActivateableCards(activateables);
@@ -81,6 +98,7 @@ export default function GamePage() {
     const targets = getTarget(cardData?.type ?? "");
     setEnemyTargets(targets === "stable" ? "" : targets);
     setPlayerTargets(targets);
+    setDiscardHighlight(targets === "discard");
     setSelectedCardUid(cardData?.uid ?? "");
   };
 
@@ -96,15 +114,14 @@ export default function GamePage() {
   return (
     <TargetedContext.Provider value={targetCards}>
       <div>
-        <div>
-          {otherHand.map((card) => (
-            <Card
-              key={card.uid}
-              cardData={card}
-              onClickHandler={() => console.log(card.slug)}
-            ></Card>
-          ))}
-        </div>
+        <CardContainer
+            cards={otherHand}
+            containerName={otherPlayer.uid}
+            highlighted={selectingHand}
+            onSelectedClick={(area) => {
+                socket?.emit("pendingAction", "hand_select", otherPlayer.uid);
+                setSelectingHand(false);
+            }}/>
       </div>
       <NeighDialog
         setResponse={(toNeigh) => {
@@ -134,8 +151,11 @@ export default function GamePage() {
           />
         </div>
         <DiscardPile
-          onCardClickHandler={() => {}}
           pile={game?.discard.slice().reverse() ?? []}
+          highlighted={discardHighlight}
+          onSelectedClick={(area: string) =>
+            onSelectableAreaClick(area, '')
+          }
         />
         <div className={classes.infermary}>
           <Card

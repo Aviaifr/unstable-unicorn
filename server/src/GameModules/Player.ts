@@ -3,7 +3,7 @@ import { Stable } from "./Stable";
 import { generateUID } from "../utils"
 import { IDBPlayer } from "../DB/Schema/player";
 import EventEmitter from "events";
-import Game from "./Game";
+import { Events } from "./Events";
 
 export class Player {
     getDestroyable(): Array<string> {
@@ -12,6 +12,7 @@ export class Player {
     name: string;
     hand: Array<Card>;
     stable: Stable;
+    handVisibleToPlayers: Map<string, Array<string>> = new Map();
     private _uid: string;
   
     constructor(name: string, uid: string | null = null, stable : Stable | null = null, hand: Array<Card> | null = null){
@@ -46,7 +47,10 @@ export class Player {
     toJson(player: Player | null){
         return {
             name: this.name,
-            hand: this.hand.map((card:Card) => player === this ? card.toJson() : card.toAnonymousJson()),
+            hand: this.hand.map((card:Card) => {
+                return (player && Array.from(this.handVisibleToPlayers.values()).some(arr => arr.includes(player.uid))) ||
+                player === this ? card.toJson() : card.toAnonymousJson();
+            }),
             stable: this.stable,
             uid: this.uid,
             currentPlayer: player === this
@@ -74,6 +78,16 @@ export class Player {
     }
 
     registerCards(em: EventEmitter): void {
+        em.on(Events.CHANGE_HAND_VISIBILITY, (targetPlayer: string, initiatingCard: Card, players: Array<string>, visible: boolean) => {
+            if(targetPlayer !== this.uid){
+                return;
+            }
+            if(visible){
+                this.handVisibleToPlayers.set(initiatingCard.uid, players)
+            }else{
+                this.handVisibleToPlayers.delete(initiatingCard.uid);
+            }
+        })
         this.hand.forEach(card => card.registerEvents(em, this));
         this.stable.registerEvents(em, this);
     }

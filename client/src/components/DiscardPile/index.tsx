@@ -5,22 +5,28 @@ import {IPlayingCard} from '../gameTypes'
 import CardContainer from '../CardContrainer'
 import useClasses from '../../hooks/useClasses'
 import {styles} from './style'
+import { styles as stableStyle} from '../Stable/style'
 
 type Props = {
-    onCardClickHandler: (cardData?: IPlayingCard) => void;
+    onSelectedClick: (area: string) => void;
+    highlighted: boolean,
     pile: IPlayingCard[],
 };
 
-export default function DiscardPile({ onCardClickHandler, pile}: Props) {
+export default function DiscardPile({ onSelectedClick, highlighted, pile}: Props) {
     const [modalOpen, setModalOpen] = useState(false);
     const {discard} = useClasses(styles);
-    return !pile.length ? (
+    const {highlight} = useClasses(stableStyle);
+    
+    return (
+        <Box className={highlighted ? highlight : ''}>
+            {!pile.length ? (
                 <Box style={{minWidth:100, border:'1px solid black'}}>
-                    Discard Pile
+                    Played Cards
                 </Box>
             ) : (
                 <Box style={{transform: 'rotate(90deg)'}}>
-                    <Card onClickHandler={() => setModalOpen(true)} cardData={pile[0]}/>
+                    <Card onClickHandler={() => highlighted ? onSelectedClick('discard') : setModalOpen(true)} cardData={pile[0]}/>
                     <Modal
                         open={modalOpen}
                         onClose={() => setModalOpen(false)}>
@@ -29,5 +35,8 @@ export default function DiscardPile({ onCardClickHandler, pile}: Props) {
                         </div>
                     </Modal>
                 </Box>
-            );
+            )
+            }
+        </Box>
+    )
 }
