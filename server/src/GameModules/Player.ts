@@ -6,8 +6,8 @@ import EventEmitter from "events";
 import { Events } from "./Events";
 
 export class Player {
-    getDestroyable(): Array<string> {
-        return this.stable.getDestroyableCards();
+    getDestroyable(type?: string): Array<string> {
+        return this.stable.getDestroyableCards(type);
     }
     name: string;
     hand: Array<Card>;

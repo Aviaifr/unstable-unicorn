@@ -4,11 +4,16 @@ import { Events } from "./Events";
 import { Player } from "./Player";
 
 export class Stable {
-    getDestroyableCards(): string[] {
-        let v = this.unicorns.filter(card => card.isDestroyable()).map(card => card.uid);
-        return this.unicorns.filter(card => card.isDestroyable()).map(card => card.uid).concat(
-            this.upgrades.filter(card => card.isDestroyable()).map(card => card.uid)).concat(
-            this.downgrades.filter(card => card.isDestroyable()).map(card => card.uid));
+
+    getCardsByType(type: string) {
+        return this.unicorns.concat(this.upgrades).concat(this.downgrades)
+            .filter(card => type === 'all' || card.baseType === type);
+
+    }
+    getDestroyableCards(type?: string): string[] {
+        return this.unicorns.filter(card => card.isDestroyable(type)).map(card => card.uid).concat(
+            this.upgrades.filter(card => card.isDestroyable(type)).map(card => card.uid)).concat(
+            this.downgrades.filter(card => card.isDestroyable(type)).map(card => card.uid));
     }
     unicorns: Array<Card>;
     upgrades: Array<Card>;
@@ -42,7 +47,9 @@ export class Stable {
                     reason &&
                     em.emit(reason === 'destroy' ? Events.AFTER_DESTROY:Events.AFTER_SACRIFICE ,
                         cardToDestroy,
-                        initiatingCard);
+                        player,
+                        initiatingCard
+                    );
                 }
         }
 
@@ -58,14 +65,17 @@ export class Stable {
         this.downgrades.forEach(card => card.registerEvents(em, player));
     }
 
-    private findInStable(cardID: string){
+    findInStable(cardID: string){
         return this.unicorns
             .concat(this.downgrades)
             .concat(this.upgrades)
             .find(card => card.uid === cardID)
     }
 
-    addCard(card: Card, area: string) {
+    addCard(card: Card, area?: string) {
+        if(!area){
+            area = this.getAreaByCardType(card.baseType);
+        }
         switch(area){
             case 'stable':
                 this.unicorns.push(card);
@@ -79,6 +89,12 @@ export class Stable {
             default:
                 console.log(`unkown area ${area}`)
         }
+    }
+    getAreaByCardType(baseType: string): string {
+        if(['unicorn', 'panda'].includes(baseType)){
+            return 'stable';
+        }
+        return baseType;
     }
 
     static fromDB(stable: { downgrades: string[]; upgrades: string[]; unicorns: string[]; }) : Stable {

@@ -72,6 +72,9 @@ export default function GamePage() {
             break;
         case "destroy":
         case "sacrifice":
+        case "discard":
+        case "snatch":
+        case "give":
             setTargetCards({targetContext: action.action, targets: action.data?? []});
             break;
         case "hand_select":

@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "allowJs": false,
+        "allowSyntheticDefaultImports": true,
+        "jsx": "preserve",
+        "lib": [
+            "dom",
+            "esnext"
+        ],
+        "types": ["@types/jest", "node"],
+        "module": "esnext",
+        "target": "esnext",
+        "moduleResolution": "node",
+        "noEmit": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "preserveConstEnums": true,
+        "removeComments": false,
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "strict": true,
+    },    
+    "exclude": [
+    ]
+}
