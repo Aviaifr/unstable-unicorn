@@ -4,7 +4,7 @@ import { Events } from "../Events";
 import { Player } from "../Player";
 import ExpectedAction from "../Actions/ExpectedActions";
 export interface EventEffectMap {
-  eventName: Events;
+  eventName: Events | Array<Events>;
   fn: (em: EventEmitter, owner: Player, card: Card) => (...args: any) => void;
 }
 
@@ -36,7 +36,11 @@ cardEventMap.set("neigh", [
     fn:
       (em: EventEmitter, owner: Player, thisCard: Card) =>
       (card: Card, player: Player, area: string, targetedPlayer?: Player) => {
-        if (player !== owner && owner.hand.includes(thisCard)) {
+        if (
+          player !== owner &&
+          owner.hand.includes(thisCard) &&
+          player.IsNeighable()
+        ) {
           em.emit(Events.ADD_GAME_ACTION, "neigh", owner, true, thisCard);
           em.once(
             Events.ON_PLAYER_ACTION,
@@ -171,10 +175,10 @@ cardEventMap.set("twoforone", [
           destroyerCard: Card
         ) => {
           if (destroyerCard === initiatingCard) {
-            if(destroyedOwner.stable.getCardsByType("all").length === 0){
-                em.emit(Events.CARD_RESOLVED, initiatingCard, owner);
-                em.emit(Events.DISCARDED, initiatingCard);
-                return;
+            if (destroyedOwner.stable.getCardsByType("all").length === 0) {
+              em.emit(Events.CARD_RESOLVED, initiatingCard, owner);
+              em.emit(Events.DISCARDED, initiatingCard);
+              return;
             }
             em.emit(
               Events.ADD_GAME_ACTION,
@@ -342,9 +346,51 @@ cardEventMap.set("unicornpoison", [
           thisCard,
           "unicorn"
         );
+        em.emit(Events.DISCARDED, thisCard);
       }
     },
   },
+]);
+
+cardEventMap.set("yay", [
+  {
+    eventName: Events.BEFORE_CARD_RESOLVE,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card) => {
+      if (card === thisCard) {
+        owner.setIsNeigable(false, thisCard.uid);
+      }
+    },
+  },
+  {
+    eventName: Events.GAME_LOADED,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => () => {
+      if (
+        owner.stable
+          .getCardsByType("all")
+          .map((c) => c.slug)
+          .includes("yay")
+      ) {
+        owner.setIsNeigable(false, thisCard.uid);
+      }
+    },
+  },
+  {
+      eventName: [Events.EFFECT_DISABLED, Events.DESTROYED, Events.SACRIFICE],
+      fn: (em: EventEmitter, owner: Player, thisCard: Card) => (target: string, destroyer: Card) => {
+          if(target === thisCard.uid){
+              owner.setIsNeigable(true, thisCard.uid)
+          }
+      }
+  },
+  {
+    eventName: [Events.AFTER_DESTROY, Events.AFTER_SACRIFICE],
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (destroyedCard: Card) => {
+      if(thisCard === destroyedCard){
+        em.emit(Events.DISCARDED, thisCard);
+      }
+    }
+    
+  }
 ]);
 
 //Trade a Unicorn in your Stable for a Unicorn in any player’s Stable.
@@ -396,6 +442,166 @@ cardEventMap.set("unicornswap", [
         }
       },
   },
+]);
+
+cardEventMap.set("extratail", [
+    {
+      eventName: Events.CHECK_PRECONDITION,
+      fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card, otherPlayers : Array<Player>) => {
+        if (card === thisCard && owner.stable.getCardsByType('basic', true).length === 0) {
+            em.emit(Events.FAILED_CHECK_PRECONDITION, thisCard, 'No basic unicorn in stable');
+        }
+      },
+    },
+    {
+      eventName: Events.TURN_START,
+      fn:
+        (em: EventEmitter, owner: Player, thisCard: Card) =>
+        (turnPlayer: Player) => {
+          if (owner === turnPlayer && owner.stable.findInStable(thisCard.uid)) {
+            em.emit(
+              Events.ADD_GAME_ACTION,
+              "draw",
+              owner,
+              false,
+              thisCard
+            );
+          } 
+        },
+    },
+]);
+
+cardEventMap.set("unfairbargain", [
+  
+  {
+    eventName: Events.BEFORE_CARD_RESOLVE,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card, otherPlayers : Array<Player>) => {
+      if (card === thisCard && owner.stable.getCardsByType('basic', true).length === 0) {
+        em.emit(Events.ADD_GAME_ACTION, "hand_select", owner, true, thisCard);
+      }
+    },
+  },
+  {
+    eventName: Events.REMOVE_EXPECTED_ACTION,
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (
+        action: string,
+        player: Player,
+        initiatingCard: Card,
+        choice: string
+      ) => {
+        if(thisCard === initiatingCard && action === 'hand_select'){
+          em.emit(Events.ADD_GAME_ACTION, 'swap_hands', player, false, thisCard, choice);
+          em.emit(Events.DISCARDED, thisCard);
+        }
+      }
+    }
+  
+]);
+
+cardEventMap.set("targeteddestruction", [
+
+  {
+    eventName: Events.BEFORE_CARD_RESOLVE,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card, otherPlayers : Array<Player>) => {
+      if (card === thisCard) {
+        em.emit(Events.ADD_GAME_ACTION, "destroy", owner, true, thisCard, 'upgrade,downgrade;true');
+        em.emit(Events.DISCARDED, thisCard);
+      }
+    },
+  },
+]);
+
+cardEventMap.set("slowdown", [
+  {
+    eventName: Events.BEFORE_CARD_RESOLVE,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card) => {
+      if (card === thisCard) {
+        owner.setCanUseInstant(false, thisCard.uid);
+      }
+    },
+  },
+  {
+    eventName: Events.GAME_LOADED,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => () => {
+      if (
+        owner.stable
+          .getCardsByType("all")
+          .map((c) => c.slug)
+          .includes("slowdown")
+      ) {
+        owner.setCanUseInstant(false, thisCard.uid);
+      }
+    },
+  },
+  {
+      eventName: [Events.EFFECT_DISABLED, Events.DESTROYED, Events.SACRIFICE],
+      fn: (em: EventEmitter, owner: Player, thisCard: Card) => (target: string, destroyer: Card) => {
+          if(target === thisCard.uid){
+              owner.setCanUseInstant(true, thisCard.uid)
+          }
+      }
+  },
+  {
+    eventName: [Events.AFTER_DESTROY, Events.AFTER_SACRIFICE],
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (destroyedCard: Card) => {
+      if(thisCard === destroyedCard){
+        em.emit(Events.DISCARDED, thisCard);
+      }
+    }
+    
+  }
+]);
+
+cardEventMap.set("barbedwire", [
+  {
+    eventName: [Events.DESTROYED, Events.SACRIFICE],
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (target: string, destroyer: Card) => {
+      const destroyedCard = owner.stable.findInStable(target)
+      if(destroyedCard && owner.stable.findInStable(thisCard.uid) && destroyedCard.baseType === 'unicorn'){
+          em.emit(Events.ADD_GAME_ACTION, 'discard', owner, true, thisCard)
+      }
+    },
+  },
+  {
+    eventName: [Events.AFTER_DESTROY, Events.AFTER_SACRIFICE],
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (destroyedCard: Card) => {
+      if(thisCard === destroyedCard){
+        em.emit(Events.DISCARDED, thisCard);
+      }
+    }
+    
+  }
+]);
+
+cardEventMap.set("blackknight", [
+  {
+    eventName: Events.BEFORE_DESTROY,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (target: string, destroyinPlayer:Player, destroyer: Card) => {
+      const destroyedCard = owner.stable.findInStable(target)
+      if(destroyedCard && owner.stable.findInStable(thisCard.uid) && destroyedCard.baseType === 'unicorn'){
+          em.emit(Events.REMOVE_EXPECTED_ACTION, 'destroy', destroyinPlayer);
+          em.emit(Events.ADD_GAME_ACTION, thisCard.uid, owner, true, thisCard, target)
+      }
+    },
+  },
+  {
+    eventName: Events.ON_PLAYER_ACTION,
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (action: ExpectedAction, choice: string, byPlayer: Player) => {
+        if (action.action != thisCard.uid) {
+          return;
+        }
+        if(choice === 'yes'){
+          em.emit(Events.SACRIFICE, thisCard.uid, thisCard); 
+          em.emit(Events.DISCARDED, thisCard);
+        }else{
+          action.data && action.data[0] && em.emit(Events.DESTROYED, action.data[0], thisCard);
+        }
+      },
+    }
 ]);
 
 export function loadCardEffects(cardSlug: string): Array<EventEffectMap> {

@@ -6,8 +6,8 @@
   "main": "./index.ts",
   "scripts": {
     "start": "node-dev ./index.ts",
-    "test": "jest --watchAll",
-    "cover": "jest --collectCoverage"
+    "test": "jest --watchAll ",
+    "tst" : "jest --collectCoverage"
   },
   "dependencies": {
     "connect-mongo": "^4.6.0",

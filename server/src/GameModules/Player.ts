@@ -6,13 +6,12 @@ import EventEmitter from "events";
 import { Events } from "./Events";
 
 export class Player {
-    getDestroyable(type?: string): Array<string> {
-        return this.stable.getDestroyableCards(type);
-    }
     name: string;
     hand: Array<Card>;
     stable: Stable;
     handVisibleToPlayers: Map<string, Array<string>> = new Map();
+    neighBlockedBy: Array<string> = [];
+    canUseInstantBlockedBy: Array<string> = [];
     private _uid: string;
   
     constructor(name: string, uid: string | null = null, stable : Stable | null = null, hand: Array<Card> | null = null){
@@ -43,7 +42,7 @@ export class Player {
             this.hand.splice(index, 1);
         }
     }
-
+    /* istanbul ignore next */ 
     toJson(player: Player | null){
         return {
             name: this.name,
@@ -56,6 +55,8 @@ export class Player {
             currentPlayer: player === this
         }
     }
+
+    /* istanbul ignore next */ 
     toDB(): IDBPlayer {
         return {
             name: this.name,
@@ -69,6 +70,8 @@ export class Player {
 
         }
     }
+
+    /* istanbul ignore next */ 
     static fromDB(data : IDBPlayer) {
         return new this(
             data.name,
@@ -82,14 +85,52 @@ export class Player {
             if(targetPlayer !== this.uid){
                 return;
             }
+
+            const onDiscarded = (initiator :Card) => {
+                if(Array.from(this.handVisibleToPlayers.keys()).includes(initiatingCard.uid)){
+                    this.handVisibleToPlayers.delete(initiatingCard.uid);
+                    em.off(Events.DISCARDED, onDiscarded)
+                }
+            }
+
             if(visible){
                 this.handVisibleToPlayers.set(initiatingCard.uid, players)
+                em.on(Events.DISCARDED, onDiscarded)
             }else{
                 this.handVisibleToPlayers.delete(initiatingCard.uid);
             }
         })
         this.hand.forEach(card => card.registerEvents(em, this));
         this.stable.registerEvents(em, this);
+    }
+
+    IsNeighable() {
+        return this.neighBlockedBy.length === 0;
+    }
+
+    setIsNeigable(val: boolean, initiatorUid: string){
+        const index = this.neighBlockedBy.indexOf(initiatorUid);
+        if (index > -1) {
+            val && this.neighBlockedBy.splice(index, 1);
+        } else if(!val){
+            this.neighBlockedBy.push(initiatorUid);
+        }
+    }
+    
+    setCanUseInstant(val: boolean, initiatorUid: string){
+        const index = this.canUseInstantBlockedBy.indexOf(initiatorUid);
+        if (index > -1) {
+            val && this.canUseInstantBlockedBy.splice(index, 1);
+        } else if(!val){
+            this.canUseInstantBlockedBy.push(initiatorUid);
+        }
+    }
+    canUseInstant():boolean {
+        return this.canUseInstantBlockedBy.length === 0;
+    }
+
+    getDestroyable(type?: string): Array<string> {
+        return this.stable.getDestroyableCards(type);
     }
 }
 

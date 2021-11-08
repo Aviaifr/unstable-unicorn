@@ -59,7 +59,7 @@ describe('ANNOYING FLYING UNICORN back to hand', () => {
     checkForListenersMemLeak([playerA, playerB], game);
   });
 
-  test("Sacrificed", () => {
+  test("Sacrificed + double destroy", () => {
     let { game, playerA, playerB } = setupGame(['twoforone'], ['basicred'],['annoying'],['basicred', 'basicred'],1);
     game.DoAction('draw', "y", playerA);
     game.Play(playerA.hand[0].uid, 'discard', playerA.uid);

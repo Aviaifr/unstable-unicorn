@@ -48,23 +48,28 @@ interface MyClassEvents {
     actionToRemove: string,
     player: Player,
     initiatingCard?: Card,
-    choice?: string
+    choice?: string,
+    extraData?: string[]
   ) => void;
   [Events.PUSH_TO_CHAIN]: (card: Card) => void;
   [Events.DISCARD_FROM_CHAIN_IF_EXISTS]: (card: Card, limit?: number) => void;
   [Events.BEFORE_TURN_START]: (turnPlayer: Player) => void;
   [Events.TURN_START]: (turnPlayer: Player) => void;
+  [Events.BEFORE_DESTROY]: (cardID: string, destroyingPlayer: Player, initiatingCard?: Card) => void;
   [Events.DESTROYED]: (cardID: string, initiatingCard?: Card) => void;
   [Events.AFTER_DESTROY]: (destroyerCard: Card, destroyedOwner: Player, initiatingCard?: Card) => void;
   [Events.AFTER_SACRIFICE]: (destroyerCard: Card, initiatingCard?: Card) => void;
   [Events.FORCE_END_TURN]: () => void;
+  [Events.GAME_LOADED]: () => void;
   [Events.BEFORE_CARD_RESOLVE]: (card: Card) => void;
   [Events.AFTER_CARD_RESOLVED]: (card: Card) => void;
   [Events.CARD_RESOLVED]: (card: Card, byPlayer: Player) => void;
   [Events.SACRIFICE]: (cardID: string, initiatingCard?: Card) => void;
   [Events.EFFECT_DISABLED] : (disabledEffectCard?: Card) => void;
   [Events.CHANGE_HAND_VISIBILITY]: (targetPlayer: string, initiatingCard: Card, players: Array<string>, visible: boolean) => void
-  [Events.ENTERED_STABLE]: (card: Card, player: Player) => void
+  [Events.ENTERED_STABLE]: (card: Card, player: Player) => void;
+  [Events.CHECK_PRECONDITION]: (card: Card, otherPlayers: Array<Player>) => void;
+  [Events.FAILED_CHECK_PRECONDITION]: (card: Card, error: string) => void;
 }
 
 export default class Game extends TypedEmitter<MyClassEvents> {
@@ -79,6 +84,7 @@ export default class Game extends TypedEmitter<MyClassEvents> {
   expectedActions: Array<ExpectedAction> = [];
   currentChain: Array<Card> = [];
   pendingActions: Array<ExpectedAction> = [];
+  playPreconditionMet: boolean = true;
 
   constructor(players: Array<Player>, template: boolean = false) {
     super();
@@ -108,96 +114,133 @@ export default class Game extends TypedEmitter<MyClassEvents> {
   }
 
   private initEvents() {
+    this.on(Events.FAILED_CHECK_PRECONDITION, (card: Card, error: string) => this.playPreconditionMet = false);
     this.on(
       Events.ADD_GAME_ACTION,
       (actionName, byPlayer?, isBlocking?, initiator?, extraData?: string) => {
         let data: Array<string> = [];
+        if(initiator && initiator.type === 'instant'){
+          if(byPlayer && !byPlayer.canUseInstant()){
+            return;
+          }
+        }
         switch (actionName) {
-            case "neigh":
-              if(this.expectedActions.find(act => act.action === 'neigh' && act.player === byPlayer.uid)){
-                return;
+          case "swap_hands":
+            const swapWithPlayer = this.players.find(p=> p.uid === extraData);
+            if(!swapWithPlayer){
+              console.error("player not found");
+              return;
+            }
+            const tmpHand = this.currentPlayer.hand;
+            this.currentPlayer.hand = swapWithPlayer.hand;
+            swapWithPlayer.hand = tmpHand;
+            swapWithPlayer.hand.forEach(card => card.ResetEvent(this, swapWithPlayer));
+            this.currentPlayer.hand.forEach(card => card.ResetEvent(this, this.currentPlayer));
+            return;
+          case "neigh":
+            if(this.expectedActions.find(act => act.action === 'neigh' && act.player === byPlayer.uid)){
+              return;
+            }
+            break;
+          case "destroy":
+              const extraDataSplit = extraData?.split(';');
+              const choice = extraData?.split(';')[0];
+              const includeCurrentPlayer = extraDataSplit && extraDataSplit.length > 1 ? extraDataSplit[1] : '';
+              data = this.getDestroyableCards(byPlayer, choice , includeCurrentPlayer === 'true') ;
+              if(data.length === 0){
+                  this.emit(Events.EFFECT_DISABLED, initiator);
+                  return;
               }
               break;
-            case "destroy":
-                data = this.getDestroyableCards(byPlayer, extraData);
-                if(data.length === 0){
-                    this.emit(Events.EFFECT_DISABLED, initiator);
-                    return;
-                }
-                break;
-            case "sacrifice":
-                data = byPlayer.getDestroyable();
-                if(data.length === 0){
-                    this.emit(Events.EFFECT_DISABLED, initiator);
-                    return;
-                }
-                break;
-            case 'hand_card_select':
-              if(!initiator){
-                return;
+          case "sacrifice":
+              data = byPlayer.getDestroyable();
+              if(data.length === 0){
+                  this.emit(Events.EFFECT_DISABLED, initiator);
+                  return;
               }
-              actionName = 'steal'
-              this.emit(Events.CHANGE_HAND_VISIBILITY, extraData ?? '', initiator, [byPlayer.uid], true);  
+              break;
+          case 'hand_card_select':
+            if(!initiator){
+              return;
+            }
+            actionName = 'steal'
+            this.emit(Events.CHANGE_HAND_VISIBILITY, extraData ?? '', initiator, [byPlayer.uid], true);  
+            extraData && (data = [extraData]);
+            break;
+          case 'player_discard': 
+            actionName = 'discard';
+            const discardingPlayer = this.players.find(player => player.uid === extraData);
+            if(!discardingPlayer){
+              console.error(`cannot add discard action, ${extraData} does not exist`);
+              return;
+            }
+            data = discardingPlayer.hand.map(card => card.uid);
+            if(data.length === 0){ //no cards to discard
+              return;
+            }
+            byPlayer = discardingPlayer;
+            break;
+          case 'snatch':
+            const snatchFrom = this.players.find(player => player.uid === extraData);
+            if(!snatchFrom){
+              console.error(`cannot add discard action, ${extraData} does not exist`);
+              return;
+            }
+            data = snatchFrom.stable.getCardsByType('unicorn').map(card => card.uid);
+            if(data.length === 0){ //no cards to discard
+              this.pendingActions = []; //reset continous actions
+              return;
+            }
+            break;
+          case "give":
+            extraData && data.push(extraData);
+            data = data.concat(byPlayer.stable.getCardsByType('unicorn').map(card => card.uid));
+            break;
+          default:
               extraData && (data = [extraData]);
               break;
-            case 'player_discard': 
-              actionName = 'discard';
-              const discardingPlayer = this.players.find(player => player.uid === extraData);
-              if(!discardingPlayer){
-                console.error(`cannot add discard action, ${extraData} does not exist`);
-                return;
-              }
-              data = discardingPlayer.hand.map(card => card.uid);
-              if(data.length === 0){ //no cards to discard
-                return;
-              }
-              byPlayer = discardingPlayer;
-              break;
-            case 'snatch':
-              const snatchFrom = this.players.find(player => player.uid === extraData);
-              if(!snatchFrom){
-                console.error(`cannot add discard action, ${extraData} does not exist`);
-                return;
-              }
-              data = snatchFrom.stable.getCardsByType('unicorn').map(card => card.uid);
-              if(data.length === 0){ //no cards to discard
-                this.pendingActions = []; //reset continous actions
-                return;
-              }
-              break;
-            case "give":
-              extraData && data.push(extraData);
-              data = data.concat(byPlayer.stable.getCardsByType('unicorn').map(card => card.uid));
-              break;
-            default:
-                extraData && (data = [extraData]);
-                break;
         }
         if (isBlocking) {
-            this.pendingActions = this.expectedActions;
-            this.expectedActions = [];
-          }
-        this.expectedActions.push({
-          action: actionName,
-          player: byPlayer.uid,
-          blocking: isBlocking,
-          data: data,
-          initiator: initiator,
-        });
+            this.pendingActions = this.pendingActions.concat(this.expectedActions.filter(act => act.managed === false));
+            this.expectedActions = this.expectedActions.filter(act => act.managed === true);
+        }
+        if(this.expectedActions.find(a => a.action === actionName && a.player === byPlayer.uid)){
+          this.pendingActions.push({
+            action: actionName,
+            player: byPlayer.uid,
+            blocking: isBlocking,
+            data: data,
+            initiator: initiator,
+            managed: false
+          });
+        }else{
+          this.expectedActions.push({
+            action: actionName,
+            player: byPlayer.uid,
+            blocking: isBlocking,
+            data: data,
+            initiator: initiator,
+            managed: false
+          });
+        }
       }
     );
     this.on(
       Events.REMOVE_EXPECTED_ACTION,
       (actionToRemove, byPlayer, initiatingCard) => {
-        this.expectedActions = this.expectedActions.filter(
+        const duplicates = this.expectedActions.filter(
           (action) =>
-            !(
+            (
               action.action === actionToRemove &&
               action.player === byPlayer.uid &&
               (!initiatingCard || initiatingCard === action.initiator)
             )
         );
-        if (!this.expectedActions.find((action) => action.blocking)) {
+        this.expectedActions = this.expectedActions.filter( act => !duplicates.includes(act));
+        for(let i = 1 ; i< duplicates.length ; i++){
+          this.expectedActions.push(duplicates[i]);
+        }
+        if (!this.expectedActions.find((action) => action.blocking && !action.managed)) {
           this.expectedActions = this.expectedActions.concat(
             this.pendingActions
           );
@@ -252,7 +295,6 @@ export default class Game extends TypedEmitter<MyClassEvents> {
           player.removeCardFromHand(card);
           this.discard.push(card);
           this.emit(Events.DISCARDED, card);
-          this.emit(Events.REMOVE_EXPECTED_ACTION, action.action, player, action.initiator, choice);
           break;
         case 'give':
           const giveToPlayer = this.players.find(player => player.uid === (action.data ? action.data[0] : ''));
@@ -291,13 +333,14 @@ export default class Game extends TypedEmitter<MyClassEvents> {
             return;
           }
       }
-      this.emit(Events.REMOVE_EXPECTED_ACTION, action.action, player, action.initiator, choice);
+      this.emit(Events.REMOVE_EXPECTED_ACTION, action.action, player, action.initiator, choice, action.data);
     });
     this.on(Events.TURN_START, (turnPlayer) => {
       this.expectedActions.push({
         action: "draw",
         player: turnPlayer.uid,
         blocking: false,
+        managed: false
       });
     });
     this.on(Events.AFTER_DESTROY, this.afterDestroy);
@@ -330,7 +373,10 @@ export default class Game extends TypedEmitter<MyClassEvents> {
     if (destroyAction) {
         switch(reason){
             case 'destroy':
-                this.emit(Events.DESTROYED, choice, destroyAction.initiator);
+                this.emit(Events.BEFORE_DESTROY, choice, this.currentPlayer, destroyAction.initiator);
+                if(this.expectedActions.includes(destroyAction)){
+                  this.emit(Events.DESTROYED, choice, destroyAction.initiator);
+                }
             break;
             case 'sacrifice': 
                 this.emit(Events.SACRIFICE, choice, destroyAction.initiator); 
@@ -366,6 +412,7 @@ export default class Game extends TypedEmitter<MyClassEvents> {
     if(!selectAction){
       return;
     }
+    selectAction.managed = true;
     this.emit(Events.ON_PLAYER_ACTION, selectAction, choice, player);
     if(this.expectedActions.length === 0){
       this.emit(Events.RESOLVE_CHAIN);
@@ -401,6 +448,11 @@ export default class Game extends TypedEmitter<MyClassEvents> {
     );
     if (!card) {
       console.log("card does not exist in players hand");
+      return;
+    }
+    this.emit(Events.CHECK_PRECONDITION, card, this.players.filter(p => p !== this.currentPlayer));
+    if(!this.playPreconditionMet){
+      this.playPreconditionMet = true;
       return;
     }
     if (area === "discard") {
@@ -448,6 +500,7 @@ export default class Game extends TypedEmitter<MyClassEvents> {
       this.emit(Events.TURN_START, player);
     } else {
       this.emit(Events.REMOVE_EXPECTED_ACTION, "draw", player);
+        
     }
   }
 
@@ -463,7 +516,7 @@ export default class Game extends TypedEmitter<MyClassEvents> {
       currentPlayer: this.currentPlayer.uid,
       uid: this.uid,
       pendingAction: this.expectedActions
-        .filter((action) => action.player === currentPlayer?.uid)
+        .filter((action) => action.player === currentPlayer?.uid && action.managed === false)
         .map((action) => {
           let { initiator, ...res } = action;
           return res;
@@ -501,9 +554,10 @@ export default class Game extends TypedEmitter<MyClassEvents> {
       action: "draw",
       player: res.currentPlayer.uid,
       blocking: true,
+      managed: false
     });
+    res.emit(Events.GAME_LOADED);
     res.emit(Events.BEFORE_TURN_START, res.currentPlayer);
-
     return res;
   }
 
@@ -517,9 +571,9 @@ export default class Game extends TypedEmitter<MyClassEvents> {
     });
   }
 
-  private getDestroyableCards(destroyingPlayer: Player, type?: string): Array<string> {
+  private getDestroyableCards(destroyingPlayer: Player, type?: string, includesPlayer?: boolean): Array<string> {
     return this.players
-      .filter((player) => player !== destroyingPlayer)
+      .filter((player) => includesPlayer || player !== destroyingPlayer)
       .map((player) => player.getDestroyable(type))
       .reduce((arr1, arr2) => arr1.concat(arr2), []);
   }

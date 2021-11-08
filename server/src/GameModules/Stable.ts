@@ -5,9 +5,9 @@ import { Player } from "./Player";
 
 export class Stable {
 
-    getCardsByType(type: string) {
+    getCardsByType(type: string, isInitialType?: boolean) {
         return this.unicorns.concat(this.upgrades).concat(this.downgrades)
-            .filter(card => type === 'all' || card.baseType === type);
+            .filter(card => type === 'all' || ( isInitialType ? card.type === type : type.split(',').includes(card.baseType)));
 
     }
     getDestroyableCards(type?: string): string[] {
@@ -45,7 +45,7 @@ export class Stable {
                 if(cardToDestroy){
                     this.removeFromStable(cardToDestroy);
                     reason &&
-                    em.emit(reason === 'destroy' ? Events.AFTER_DESTROY:Events.AFTER_SACRIFICE ,
+                    em.emit(reason === 'destroy' ? Events.AFTER_DESTROY : Events.AFTER_SACRIFICE ,
                         cardToDestroy,
                         player,
                         initiatingCard
@@ -96,7 +96,8 @@ export class Stable {
         }
         return baseType;
     }
-
+    
+    /* istanbul ignore next */ 
     static fromDB(stable: { downgrades: string[]; upgrades: string[]; unicorns: string[]; }) : Stable {
         const val = new this();
         val.downgrades = stable.downgrades?.map(slug => new Card(slug));

@@ -22,6 +22,7 @@ export const ZERO_SUM_LISTERENS: any = {
     destroyed: 2,
     cardDiscard: 2,
     AFTER_CARD_RESOLVED: 2,
+    FAILED_CHECK_PRECONDITION: 1
   };
 
 export function checkForListenersMemLeak(players: Array<Player>, em: EventEmitter) {
@@ -40,9 +41,15 @@ export function checkForListenersMemLeak(players: Array<Player>, em: EventEmitte
           //every card in hand with an effect has a discarded event as well
           expectedListeners[Events.DISCARDED] += card.effects.length > 0 ? 1 : 0;
           card.effects.forEach((e) => {
-            expectedListeners[e.eventName]
-              ? expectedListeners[e.eventName]++
-              : (expectedListeners[e.eventName] = 1);
+            if(!Array.isArray(e.eventName)){
+              expectedListeners[e.eventName]
+                ? expectedListeners[e.eventName]++
+                : (expectedListeners[e.eventName] = 1);
+            }else{
+              e.eventName.forEach(event => expectedListeners[event]
+                ? expectedListeners[event]++
+                : (expectedListeners[event] = 1))
+            }
           });
         })
     );
