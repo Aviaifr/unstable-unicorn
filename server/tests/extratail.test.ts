@@ -10,7 +10,7 @@ import { checkForListenersMemLeak } from "./memLeakHelper";
  *
  */
 describe("extratail", () => {
-  xtest("no basic - no play", () => {
+  test("no basic - no play", () => {
     let { game, playerA, playerB } = setupGame(
       ["extratail"],
       ['annoying'],
@@ -50,7 +50,7 @@ describe("extratail", () => {
     checkForListenersMemLeak([playerA, playerB], game);
   });
 
-  xtest("playing card end turn with double draw", () => {
+  test("playing card end turn with double draw", () => {
     let { game, playerA, playerB } = setupGame(
       ["basicblue"],
       [],

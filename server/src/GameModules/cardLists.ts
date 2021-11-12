@@ -100,7 +100,7 @@ const _cardList = {
         "americorn": {
             "count": 1,
             "type": "magical",
-            "text": "When this cardenters your Stable, you may take a card at random from any player’s hand and add it to your hand. ",
+            "text": "When this card enters your Stable, you may take a card at random from any player’s hand and add it to your hand. ",
             "name": "AMERICORN"
         },
         "extremelyfertile": {
@@ -430,7 +430,7 @@ const _cardList = {
         "yay": {
             "count": 2,
             "type": "upgrade",
-            "text": "As ong as this card is in your Stable, cards you play cannot be Neigh’d.",
+            "text": "As long as this card is in your Stable, cards you play cannot be Neigh’d.",
             "name": "YAY"
         },
         "sadisticritual": {

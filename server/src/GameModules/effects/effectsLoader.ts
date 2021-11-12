@@ -95,6 +95,7 @@ cardEventMap.set("rhinocorn", [
           return;
         }
         em.emit(Events.REMOVE_EXPECTED_ACTION, action, byPlayer);
+        em.emit(Events.REMOVE_EXPECTED_ACTION, 'draw', byPlayer);
         em.emit(Events.ADD_GAME_ACTION, "destroy", owner, true, initiatingCard);
       },
   },
@@ -469,10 +470,15 @@ cardEventMap.set("extratail", [
           } 
         },
     },
+    {
+      eventName: Events.AFTER_CARD_PLAYED,
+      fn: (em: EventEmitter, owner: Player, thisCard: Card) => () =>{
+        em.emit(Events.REMOVE_EXPECTED_ACTION, 'draw', owner);
+      }
+    }
 ]);
 
 cardEventMap.set("unfairbargain", [
-  
   {
     eventName: Events.BEFORE_CARD_RESOLVE,
     fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card, otherPlayers : Array<Player>) => {
@@ -602,6 +608,189 @@ cardEventMap.set("blackknight", [
         }
       },
     }
+]);
+
+cardEventMap.set("majesticflying", [
+  {
+    eventName: Events.ENTERED_STABLE,
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (card: Card, stableOwner: Player) => {
+        if (card !== thisCard) {
+          return;
+        }
+        em.emit(Events.ADD_GAME_ACTION, thisCard.uid, owner, true, thisCard);
+      },
+  },
+  {
+    eventName: Events.REMOVE_EXPECTED_ACTION,
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (
+        action: string,
+        player: Player,
+        initiatingCard: Card,
+        choice: string
+      ) => {
+        if (initiatingCard === thisCard && action === thisCard.uid && choice == 'yes') {
+          em.emit(
+            Events.ADD_GAME_ACTION,
+            "choose_discard",
+            owner,
+            false,
+            thisCard,
+            'unicorn'
+          );
+        }
+      },
+  },
+  {
+    eventName: [Events.AFTER_DESTROY, Events.AFTER_SACRIFICE],
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (card: Card, stableOwner: Player, initiatingCard: Card) => {
+        if (thisCard !== card) {
+          return;
+        }
+        stableOwner.hand.push(card);
+        em.emit(Events.REMOVE_FROM_DISCARD, card);
+      },
+  },
+]);
+
+cardEventMap.set("rainbowaura", [
+  {
+    eventName: Events.BEFORE_DESTROY,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (target: string, destroyinPlayer:Player, destroyer: Card) => {
+      const destroyedCard = owner.stable.findInStable(target)
+      if(destroyedCard && owner.stable.findInStable(thisCard.uid) && destroyedCard.baseType === 'unicorn'){
+          em.emit(Events.REMOVE_EXPECTED_ACTION, 'destroy', destroyinPlayer);
+      }
+    },
+  },
+]);
+//Events.CHECK_PRECONDITION, card, this.players.filter(p => p !== this.currentPlayer));
+
+cardEventMap.set("queenbee", [
+  {
+    eventName: Events.CHECK_PRECONDITION,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (playedCard: Card, otherPlayers: Array<Player>, destroyer: Card) => {
+      if(!owner.hand.includes(playedCard)){
+        em.emit(Events.FAILED_CHECK_PRECONDITION, thisCard, 'Queen Bee effect');
+      }
+    },
+  },
+]);
+cardEventMap.set("extremelydestructive", [
+  {
+    eventName: Events.ENTERED_STABLE,
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (card: Card, stableOwner: Player) => {
+        if (card === thisCard) {
+          em.emit(Events.ADD_GAME_ACTION, 'sacrifice', owner, true, thisCard, 'all');
+        }
+      },
+  },
+  {
+    eventName: Events.AFTER_SACRIFICE,
+    fn :(em: EventEmitter, owner: Player, thisCard: Card) =>
+      (card: Card, stableOwner: Player, initiatingCard: Card) => {
+        if(initiatingCard === thisCard){
+          em.emit(Events.REMOVE_EXPECTED_ACTION, 'sacrifice', stableOwner, thisCard);
+          if(card === thisCard){
+            em.once(Events.BEFORE_TURN_END, (turnPlayer: Player) => {
+              em.emit(Events.DISCARDED, thisCard);
+            })
+          }
+        }
+      }
+  },
+  {
+    eventName: [Events.AFTER_SACRIFICE, Events.AFTER_DESTROY],
+    fn :(em: EventEmitter, owner: Player, thisCard: Card)=>
+      (card: Card, stableOwner: Player, initiatingCard: Card) => {
+        if(card === thisCard && thisCard !== initiatingCard){
+          em.emit(Events.DISCARDED, thisCard);
+        }
+    }
+  }
+]);
+
+cardEventMap.set("americorn", [
+  {
+    eventName: Events.ENTERED_STABLE,
+    fn:
+      (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (card: Card, stableOwner: Player) => {
+        if (card === thisCard) {
+          em.emit(Events.ADD_GAME_ACTION, 'steal_card', owner, true, thisCard);
+        }
+      },
+  },
+]);
+
+cardEventMap.set("extremelyfertile", [
+  {
+    eventName: Events.BEFORE_TURN_START,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (turnPlayer: Player) => {
+        if (
+          turnPlayer != owner ||
+          !owner.stable.unicorns.find((card) => card === initiatingCard) ||
+          owner.hand.length === 0
+        ) {
+          return;
+        }
+        em.emit(
+          Events.ADD_GAME_ACTION,
+          initiatingCard.uid,
+          owner,
+          false,
+          initiatingCard
+        );
+      },
+  },
+  {
+    eventName: Events.ON_PLAYER_ACTION,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (action: ExpectedAction, choice: string, byPlayer: Player) => {
+        if (action.action != initiatingCard.uid) {
+          return;
+        }
+        em.emit(Events.ADD_GAME_ACTION, "discard", owner, true, initiatingCard);
+      },
+  },
+  {
+    eventName: Events.REMOVE_EXPECTED_ACTION,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) =>
+      (actionToRemove: string, byPlayer: Player, initiatingCard?: Card) => {
+        if(actionToRemove === 'discard' && initiatingCard === thisCard){
+          em.emit(Events.REMOVE_EXPECTED_ACTION, 'discard', byPlayer);
+          em.emit(Events.ADD_GAME_ACTION, 'add_baby',  owner, true, thisCard);
+          em.emit(Events.REMOVE_EXPECTED_ACTION, 'add_baby',  owner, thisCard);
+        }
+      }
+  },
+  {
+    eventName: Events.TURN_START,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (turnPlayer: Player) => {
+        if (owner !== turnPlayer) {
+          return;
+        }
+        em.emit(
+          Events.REMOVE_EXPECTED_ACTION,
+          initiatingCard.uid,
+          owner,
+          initiatingCard
+        );
+      },
+  },
+  
 ]);
 
 export function loadCardEffects(cardSlug: string): Array<EventEffectMap> {
