@@ -6,9 +6,7 @@ import { Player } from "./Player";
 import { Events } from "./Events";
 
 export class Card {
-  isDestroyable(type?: string): boolean {
-    return this.destroyable && (!type || this.baseType === type || type.split(',').includes(this.baseType));
-  }
+  
   name: string;
   effects: Array<EventEffectMap> = [];
   uid: string;
@@ -17,6 +15,7 @@ export class Card {
   text: string;
   slug: string;
   destroyable: boolean = true;
+  isAffectedBy: Map<string, (initiator: Card) => boolean> = new Map();
   unregisterFunction: (card: Card) => void = () => {};
 
   constructor(slug: string, description: CardDescriptor | null = null) {
@@ -35,6 +34,12 @@ export class Card {
     this.text = desc.text;
     this.baseType = this.getBaseType();
   }
+
+  isDestroyable(type?: string, initiator?: Card): boolean {
+    let isAffected = !initiator || !Array.from(this.isAffectedBy.values()).find(fn => fn(initiator) === false);
+    return this.destroyable && isAffected && (!type || this.baseType === type || type.split(',').includes(this.baseType));
+  }
+
   getBaseType(): string {
     if (["baby", "magical", "basic"].includes(this.type)) {
       return "unicorn";
@@ -84,10 +89,6 @@ export class Card {
 
         em.prependListener(eventName, fn);
   }
-
-  /*private registerEvent(em: EventEmitter, newOwner: Player, effectName: Event, fn:typeof EventEffectMap.fn){
-        
-    }*/
 
   toAnonymousJson() {
     return {

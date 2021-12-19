@@ -129,8 +129,8 @@ export class Player {
         return this.canUseInstantBlockedBy.length === 0;
     }
 
-    getDestroyable(type?: string): Array<string> {
-        return this.stable.getDestroyableCards(type);
+    getDestroyable(initiator?: Card, type?: string): Array<string> {
+        return this.stable.getDestroyableCards(type, initiator);
     }
 }
 

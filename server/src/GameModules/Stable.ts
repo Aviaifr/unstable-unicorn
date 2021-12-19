@@ -10,10 +10,10 @@ export class Stable {
             .filter(card => type === 'all' || ( isInitialType ? card.type === type : type.split(',').includes(card.baseType)));
 
     }
-    getDestroyableCards(type?: string): string[] {
-        return this.unicorns.filter(card => card.isDestroyable(type)).map(card => card.uid).concat(
-            this.upgrades.filter(card => card.isDestroyable(type)).map(card => card.uid)).concat(
-            this.downgrades.filter(card => card.isDestroyable(type)).map(card => card.uid));
+    getDestroyableCards(type?: string, initiator?: Card): string[] {
+        return this.unicorns.filter(card => card.isDestroyable(type, initiator)).map(card => card.uid).concat(
+            this.upgrades.filter(card => card.isDestroyable(type, initiator)).map(card => card.uid)).concat(
+            this.downgrades.filter(card => card.isDestroyable(type, initiator)).map(card => card.uid));
     }
     unicorns: Array<Card>;
     upgrades: Array<Card>;

@@ -3,6 +3,7 @@ import { Card } from "../Card";
 import { Events } from "../Events";
 import { Player } from "../Player";
 import ExpectedAction from "../Actions/ExpectedActions";
+import { rm } from "fs";
 export interface EventEffectMap {
   eventName: Events | Array<Events>;
   fn: (em: EventEmitter, owner: Player, card: Card) => (...args: any) => void;
@@ -40,6 +41,7 @@ cardEventMap.set("neigh", [
           player !== owner &&
           owner.hand.includes(thisCard) &&
           player.IsNeighable()
+          && owner.canUseInstant()
         ) {
           em.emit(Events.ADD_GAME_ACTION, "neigh", owner, true, thisCard);
           em.once(
@@ -748,7 +750,8 @@ cardEventMap.set("extremelyfertile", [
           initiatingCard.uid,
           owner,
           false,
-          initiatingCard
+          initiatingCard,
+          owner.hand.map(c => c.uid).join(';')
         );
       },
   },
@@ -760,7 +763,7 @@ cardEventMap.set("extremelyfertile", [
         if (action.action != initiatingCard.uid) {
           return;
         }
-        em.emit(Events.ADD_GAME_ACTION, "discard", owner, true, initiatingCard);
+        em.emit(Events.ADD_GAME_ACTION, "discard", owner, true, initiatingCard, action.data?.join(';'));
       },
   },
   {
@@ -790,7 +793,236 @@ cardEventMap.set("extremelyfertile", [
         );
       },
   },
+  {
+    eventName: [Events.AFTER_DESTROY, Events.AFTER_SACRIFICE],
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) =>
+    (card: Card) => {
+      card === thisCard && em.emit(Events.DISCARDED, thisCard);
+    }
+  }
   
+]);
+
+cardEventMap.set("glitterbomb", [
+  {
+    eventName: Events.BEFORE_TURN_START,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (turnPlayer: Player) => {
+        if (
+          turnPlayer != owner ||
+          !owner.stable.upgrades.find((card) => card === initiatingCard) ||
+          owner.hand.length === 0
+        ) {
+          return;
+        }
+        em.emit(
+          Events.ADD_GAME_ACTION,
+          initiatingCard.uid,
+          owner,
+          false,
+          initiatingCard,
+          owner.stable.getCardsByType('all').map(c => c.uid).join(';')
+        );
+      },
+  },
+  {
+    eventName: Events.ON_PLAYER_ACTION,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (action: ExpectedAction, choice: string, byPlayer: Player) => {
+        if (action.action != initiatingCard.uid) {
+          return;
+        }
+        em.emit(Events.ADD_GAME_ACTION, "sacrifice", owner, true, initiatingCard, action.data?.join(';'));
+      },
+  },
+  {
+    eventName: Events.AFTER_SACRIFICE,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) =>
+      ( sacrificedCard: Card, owner: Player, initiatingCard: Card) => {
+        if(initiatingCard === thisCard){
+          em.emit(Events.REMOVE_EXPECTED_ACTION, 'sacrifice',  owner, thisCard);
+          em.emit(Events.ADD_GAME_ACTION, 'destroy',  owner, true, thisCard);
+        }
+      }
+  },
+  {
+    eventName: Events.TURN_START,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (turnPlayer: Player) => {
+        if (owner !== turnPlayer) {
+          return;
+        }
+        em.emit(
+          Events.REMOVE_EXPECTED_ACTION,
+          initiatingCard.uid,
+          owner,
+          initiatingCard
+        );
+      },
+  },
+]);
+
+cardEventMap.set("unicornonthecob", [
+  {
+    eventName: Events.ENTERED_STABLE,
+    fn:
+    (em: EventEmitter, owner: Player, thisCard: Card) =>
+    (card: Card, stableOwner: Player) => {
+        if (thisCard === card && owner === stableOwner){
+          em.emit(
+            Events.ADD_GAME_ACTION,
+            'draw',
+            owner,
+            true,
+            thisCard,
+          );
+          const on2ndDraw = (actionName: string, byPlayer: Player, initiatingCard: Card) => {
+            if(actionName === 'draw' && byPlayer === owner && initiatingCard === thisCard){
+              em.emit(
+                Events.ADD_GAME_ACTION,
+                'discard',
+                owner,
+                true,
+                thisCard,
+              );
+            }else{
+              em.once(Events.REMOVE_EXPECTED_ACTION, on2ndDraw);
+            }
+          }
+          const onDraw = (actionName: string, byPlayer: Player, initiatingCard: Card) => {
+              if(actionName === 'draw' && byPlayer === owner && initiatingCard === thisCard){
+                em.emit(
+                  Events.ADD_GAME_ACTION,
+                  'draw',
+                  owner,
+                  true,
+                  thisCard,
+                );
+                em.once(Events.REMOVE_EXPECTED_ACTION, on2ndDraw);
+              }else{
+                em.once(Events.REMOVE_EXPECTED_ACTION, onDraw);
+              }
+          }
+          em.once(Events.REMOVE_EXPECTED_ACTION, onDraw);
+        }
+      },
+    }
+]);
+
+cardEventMap.set("magicalkittencorn", [
+  {
+    eventName: Events.ENTERED_STABLE,
+    fn:
+    (em: EventEmitter, owner: Player, thisCard: Card) =>
+    (card: Card, stableOwner: Player) => {
+        if (thisCard === card && owner === stableOwner){
+          !thisCard.isAffectedBy.has(thisCard.uid) &&
+           thisCard.isAffectedBy.set(thisCard.uid, (initiator: Card) => initiator.baseType !== 'magic');
+        }
+    },
+  },
+  {
+    eventName: Events.GAME_LOADED,
+    fn:
+    (em: EventEmitter, owner: Player, thisCard: Card) =>
+    () => {
+        if (owner.stable.findInStable(thisCard.uid)){
+          !thisCard.isAffectedBy.has(thisCard.uid) &&
+           thisCard.isAffectedBy.set(thisCard.uid, (initiator: Card) => initiator.baseType !== 'magic');
+        }
+    },
+  },
+  {
+    eventName: [Events.AFTER_DESTROY, Events.AFTER_SACRIFICE],
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) =>
+    (card: Card) => {
+      thisCard.isAffectedBy.delete(thisCard.uid)
+    }
+  }
+]);
+
+cardEventMap.set("gooddeal", [
+  {
+    eventName: Events.REMOVE_EXPECTED_ACTION,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => 
+    (actionName: string, byPlayer: Player, initiatingCard: Card) => {
+      if(actionName === 'discard' && byPlayer === owner && initiatingCard === thisCard){
+        em.emit(Events.DISCARDED, thisCard);
+      }
+    }
+  },
+  {
+    eventName: Events.BEFORE_CARD_RESOLVE,
+    fn: (em: EventEmitter, owner: Player, thisCard: Card) => (card: Card) => {
+      let drawCount = 0;
+        if (thisCard === card){
+          em.emit(
+            Events.ADD_GAME_ACTION,
+            'draw',
+            owner,
+            true,
+            thisCard,
+          );
+          const onDraw = (actionName: string, byPlayer: Player, initiatingCard: Card) => {
+              if(actionName === 'draw' && byPlayer === owner && initiatingCard === thisCard){
+                drawCount++;
+                if(drawCount === 3){
+                  em.emit(
+                    Events.ADD_GAME_ACTION,
+                    'discard',
+                    owner,
+                    true,
+                    thisCard,
+                  );
+                  return;
+                }
+                em.emit(
+                  Events.ADD_GAME_ACTION,
+                  'draw',
+                  owner,
+                  true,
+                  thisCard,
+                );
+              }
+              em.once(Events.REMOVE_EXPECTED_ACTION, onDraw);
+          }
+          em.once(Events.REMOVE_EXPECTED_ACTION, onDraw);
+        }
+      },
+    }
+]);
+
+cardEventMap.set("shabby", [
+  {
+    eventName: Events.ENTERED_STABLE,
+    fn:
+    (em: EventEmitter, owner: Player, thisCard: Card) =>
+    (card: Card, stableOwner: Player) => {
+        if (stableOwner == owner && card === thisCard) {
+          em.emit(
+            Events.ADD_GAME_ACTION,
+            thisCard.uid,
+            owner,
+            false,
+            thisCard
+          );
+        }
+      },
+  },
+  {
+    eventName: Events.ON_PLAYER_ACTION,
+    fn:
+      (em: EventEmitter, owner: Player, initiatingCard: Card) =>
+      (action: ExpectedAction, choice: string, byPlayer: Player) => {
+        if (action.action === initiatingCard.uid && choice === 'y') {
+          em.emit(Events.REMOVE_EXPECTED_ACTION, action, byPlayer);
+          em.emit(Events.ADD_GAME_ACTION, 'pick_from_deck', owner, true, initiatingCard, '{"type": "downgrade"}');
+        }
+      },
+  },
 ]);
 
 export function loadCardEffects(cardSlug: string): Array<EventEffectMap> {

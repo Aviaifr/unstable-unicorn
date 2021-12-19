@@ -53,7 +53,7 @@ export function checkForListenersMemLeak(players: Array<Player>, em: EventEmitte
           });
         })
     );
-    //console.log(em.listeners(Events.BEFORE_CARD_RESOLVE).map(l => l.toString()));
+    //console.log(em.listeners(Events.REMOVE_EXPECTED_ACTION).map(l => l.toString() + '---------------------------------------------'));
     Object.keys(listenersCount).forEach((key) =>
       expect({ [key]: listenersCount[key] }).toEqual({
         [key]: expectedListeners[key],
