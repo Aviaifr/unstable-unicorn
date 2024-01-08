@@ -1,4 +1,4 @@
-FROM node:14
+FROM node:18.19-buster
 
 ENV NODE_ENV=development
 # Create app directory
